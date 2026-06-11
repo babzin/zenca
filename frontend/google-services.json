@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "9816104949",
+    "project_id": "zenca-a0dfa",
+    "storage_bucket": "zenca-a0dfa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:9816104949:android:6978466f4a6af4bc16cabc",
+        "android_client_info": {
+          "package_name": "com.zenca.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-vAhUpY4xdITX0mH8_0wEkXAqOxpKqp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

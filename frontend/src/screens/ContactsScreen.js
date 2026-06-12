@@ -1,224 +1,259 @@
-/** @jsxRuntime classic */
-/** @jsx React.createElement */
-
-declare module 'react' {
-  const React: any;
-  export default React;
-  export const useState: any;
-  export const useEffect: any;
-  export const useCallback: any;
-}
-
-// src/screens/ContactsScreen.tsx
-// Manages the user's emergency contacts, allowing adding, editing, and deleting contacts, as well as resetting to defaults based on detected state.
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput,
-  StyleSheet, ActivityIndicator, Alert as RNAlert, SafeAreaView,
+  View,
+  Text,
+  FlatList,
+  Button,
+  Alert,
+  TextInput,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
-import { loadContacts, addContact, editContact, deleteContact, resetDefaultContacts } from '../services/contacts';
-import ContactItem from '../components/ContactItem';
-import type { EmergencyContact } from '../types';
+import { useNavigation } from '@react-navigation/native';
+import { ContactItem } from '../components/ContactItem';
+import {
+  loadContacts,
+  getDefaultContactsForState,
+  resetToDefaults,
+  addContact,
+  updateContact,
+  deleteContact,
+} from '../services/contactsStorage';
+import { getCurrentState } from '../utils/reverseGeocode';
 
-interface Props {
-  detectedState?: string;
-}
-
-export default function ContactsScreen({ detectedState = 'Lagos' }: Props) {
-  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
+export default function ContactsScreen() {
+  const navigation = useNavigation();
+  const [contacts, setContacts] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
+  const [activeTab, setActiveTab] = useState('emergency'); // 'emergency' or 'my'
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const data = await loadContacts(detectedState);
-    setContacts(data);
-    setLoading(false);
-  }, [detectedState]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleEdit = async (id: string, name: string, number: string) => {
-    const updated = await editContact(contacts, id, name, number);
-    setContacts(updated);
+  const load = async () => {
+    const stored = await loadContacts();
+    setContacts(stored);
   };
 
-  const handleDelete = async (id: string) => {
-    const updated = await deleteContact(contacts, id);
-    setContacts(updated);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleReset = async () => {
+    const state = await getCurrentState();
+    const defaults = getDefaultContactsForState(state);
+    await resetToDefaults(defaults);
+    load();
+    Alert.alert('Reset Complete', `Default emergency numbers for ${state} restored.`);
   };
 
-  const handleAdd = async () => {
+  const handleSaveContact = async () => {
     if (!newName.trim() || !newNumber.trim()) {
-      RNAlert.alert('Required', 'Name and number are required.');
+      Alert.alert('Error', 'Enter both name and number.');
       return;
     }
-    const updated = await addContact(contacts, newName.trim(), newNumber.trim());
-    setContacts(updated);
+    if (editingContact) {
+      await updateContact(editingContact.id, newName.trim(), newNumber.trim());
+    } else {
+      await addContact(newName.trim(), newNumber.trim());
+    }
+    setModalVisible(false);
+    setEditingContact(null);
     setNewName('');
     setNewNumber('');
-    setShowAddForm(false);
+    load();
   };
 
-  const handleReset = () => {
-    RNAlert.alert(
-      'Reset Defaults',
-      `Replace default contacts with ${detectedState} defaults?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          onPress: async () => {
-            const updated = await resetDefaultContacts(contacts, detectedState);
-            setContacts(updated);
-          },
-        },
-      ]
-    );
-  };
+  const renderItem = ({ item }) => (
+    <ContactItem
+      contact={item}
+      onEdit={(contact) => {
+        setEditingContact(contact);
+        setNewName(contact.name);
+        setNewNumber(contact.number);
+        setModalVisible(true);
+      }}
+      onDelete={async (id) => {
+        await deleteContact(id);
+        load();
+      }}
+    />
+  );
 
-  const defaults = contacts.filter((c: EmergencyContact) => c.category === 'default');
-  const customs = contacts.filter((c: EmergencyContact) => c.category === 'custom');
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <ActivityIndicator color="#FF2222" style={{ marginTop: 40 }} />
-      </SafeAreaView>
-    );
-  }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.title}>CONTACTS</Text>
-        <TouchableOpacity onPress={handleReset}>
-          <Text style={styles.resetText}>Reset Defaults</Text>
+    <View style={styles.container}>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'emergency' && styles.activeTab]}
+          onPress={() => setActiveTab('emergency')}
+        >
+          <Text style={[styles.tabText, activeTab === 'emergency' && styles.activeTabText]}>
+            Emergency Numbers
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'my' && styles.activeTab]}
+          onPress={() => setActiveTab('my')}
+        >
+          <Text style={[styles.tabText, activeTab === 'my' && styles.activeTabText]}>
+            My Contacts
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.stateName}>State: {detectedState}</Text>
-
-      {/* Default contacts */}
-      <Text style={styles.sectionLabel}>EMERGENCY NUMBERS</Text>
-      {defaults.map((c: EmergencyContact) => (
-        <React.Fragment key={c.id}>
-          <ContactItem
-            contact={c}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+      {activeTab === 'emergency' && (
+        <>
+          <Button title="Reset to State Defaults" onPress={handleReset} color="#1976d2" />
+          <FlatList
+            data={contacts.filter(c => c.isDefault)}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListEmptyComponent={
+              <Text style={styles.empty}>No emergency contacts. Tap reset to load defaults.</Text>
+            }
           />
-        </React.Fragment>
-      ))}
-
-      {/* Custom contacts */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>MY CONTACTS</Text>
-        <TouchableOpacity onPress={() => setShowAddForm(!showAddForm)}>
-          <Text style={styles.addBtn}>{showAddForm ? 'Cancel' : '+ Add'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {showAddForm && (
-        <View style={styles.addForm}>
-          <TextInput
-            style={styles.input}
-            placeholder="Contact name"
-            placeholderTextColor="#555"
-            value={newName}
-            onChangeText={setNewName}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Phone number"
-            placeholderTextColor="#555"
-            value={newNumber}
-            onChangeText={setNewNumber}
-            keyboardType="phone-pad"
-          />
-          <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
-            <Text style={styles.saveBtnText}>Add Contact</Text>
-          </TouchableOpacity>
-        </View>
+        </>
       )}
 
-      {customs.length === 0 ? (
-        <Text style={styles.emptyText}>No custom contacts yet.</Text>
-      ) : (
-        customs.map((c: EmergencyContact) => (
-          <React.Fragment key={c.id}>
-            <ContactItem
-              contact={c}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
+      {activeTab === 'my' && (
+        <>
+          <FlatList
+            data={contacts.filter(c => !c.isDefault)}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListEmptyComponent={
+              <Text style={styles.empty}>No personal contacts. Add one below.</Text>
+            }
+          />
+          <Button
+            title="+ Add New Contact"
+            onPress={() => {
+              setEditingContact(null);
+              setNewName('');
+              setNewNumber('');
+              setModalVisible(true);
+            }}
+          />
+        </>
+      )}
+
+      <View style={styles.legalContainer}>
+        <Button
+          title="Privacy Policy"
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+          color="#666"
+        />
+        <Button
+          title="Terms & Conditions"
+          onPress={() => navigation.navigate('Terms')}
+          color="#666"
+        />
+      </View>
+
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {editingContact ? 'Edit Contact' : 'New Contact'}
+            </Text>
+            <TextInput
+              placeholder="Name"
+              value={newName}
+              onChangeText={setNewName}
+              style={styles.modalInput}
             />
-          </React.Fragment>
-        ))
-      )}
-    </SafeAreaView>
+            <TextInput
+              placeholder="Phone number"
+              value={newNumber}
+              onChangeText={setNewNumber}
+              style={styles.modalInput}
+              keyboardType="phone-pad"
+            />
+            <View style={styles.modalButtons}>
+              <Button title="Save" onPress={handleSaveContact} />
+              <Button title="Cancel" onPress={() => setModalVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0a0a0a' },
-  header: {
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
     alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#d32f2f',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 40,
+    color: '#999',
+  },
+  legalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 24,
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 20,
-    paddingBottom: 8,
+    width: '80%',
+    maxWidth: 350,
   },
-  title: { fontSize: 20, fontWeight: '900', color: '#FF2222', letterSpacing: 4 },
-  resetText: { color: '#555', fontSize: 13 },
-  stateName: { color: '#555', fontSize: 12, paddingHorizontal: 20, marginBottom: 12 },
-  sectionLabel: {
-    color: '#444',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    paddingHorizontal: 20,
-    marginBottom: 8,
-    marginTop: 8,
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingRight: 20,
-    marginTop: 16,
-  },
-  addBtn: { color: '#FF5555', fontSize: 14 },
-  addForm: {
-    marginHorizontal: 20,
-    backgroundColor: '#111',
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 8,
-    padding: 14,
+    padding: 10,
     marginBottom: 12,
   },
-  input: {
-    backgroundColor: '#1a1a1a',
-    color: '#EEE',
-    borderRadius: 4,
-    padding: 10,
-    marginBottom: 8,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  saveBtn: {
-    backgroundColor: '#CC0000',
-    borderRadius: 4,
-    padding: 10,
-    alignItems: 'center',
-  },
-  saveBtnText: { color: '#FFF', fontSize: 14 },
-  emptyText: {
-    color: '#444',
-    fontSize: 13,
-    paddingHorizontal: 20,
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 8,
   },
 });

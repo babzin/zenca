@@ -1,70 +1,44 @@
-
-
-// @ts-nocheck
-/** @jsxRuntime classic */
-/** @jsx React.createElement */
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../screens/HomeScreen';
 import MyAlertsScreen from '../screens/MyAlertsScreen';
 import ContactsScreen from '../screens/ContactsScreen';
+import MapScreen from '../screens/MapScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import TermsScreen from '../screens/TermsScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
-interface Props {
-  deviceUUID: string;
-  detectedState: string;
-  demoMode: boolean;
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: true,
+        tabBarActiveTintColor: '#d32f2f',
+        tabBarInactiveTintColor: '#757575',
+      }}
+    >
+      <Tab.Screen name="Alerts" component={HomeScreen} />
+      <Tab.Screen name="Map" component={MapScreen} />
+      <Tab.Screen name="My Alerts" component={MyAlertsScreen} />
+      <Tab.Screen name="Emergency Contacts" component={ContactsScreen} />
+      <Tab.Screen name="Help" component={FeedbackScreen} />
+    </Tab.Navigator>
+  );
 }
 
-export default function AppNavigator({ deviceUUID, detectedState, demoMode }: Props) {
+export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: '#0d0d0d',
-            borderTopColor: '#1a1a1a',
-            borderTopWidth: 1,
-          },
-          tabBarActiveTintColor: '#FF2222',
-          tabBarInactiveTintColor: '#444',
-          tabBarLabelStyle: { fontSize: 10, letterSpacing: 1 },
-        }}
-      >
-        <Tab.Screen
-          name="Home"
-          options={{
-            tabBarLabel: 'ALERTS',
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>⚠️</Text>,
-          }}
-        >
-          {() => <HomeScreen deviceUUID={deviceUUID} demoMode={demoMode} />}
-        </Tab.Screen>
-
-        <Tab.Screen
-          name="MyAlerts"
-          options={{
-            tabBarLabel: 'MY ALERTS',
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📋</Text>,
-          }}
-        >
-          {() => <MyAlertsScreen deviceUUID={deviceUUID} />}
-        </Tab.Screen>
-
-        <Tab.Screen
-          name="Contacts"
-          options={{
-            tabBarLabel: 'CONTACTS',
-            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>📞</Text>,
-          }}
-        >
-          {() => <ContactsScreen detectedState={detectedState} />}
-        </Tab.Screen>
-      </Tab.Navigator>
+      <Stack.Navigator>
+        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+        <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }

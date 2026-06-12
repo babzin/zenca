@@ -1,45 +1,51 @@
-
-
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-const env = (globalThis as any).process?.env ?? {};
+// Load environment variables from app.config.js extra
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-const SUPABASE_URL =
-  Constants.expoConfig?.extra?.supabaseUrl ??
-  env.EXPO_PUBLIC_SUPABASE_URL ??
-  '';
+let deviceUUID = null;
 
-const SUPABASE_ANON_KEY =
-  Constants.expoConfig?.extra?.supabaseAnonKey ??
-  env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
-  '';
+// Generate a random UUID v4 (no external library)
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY');
-}
+// Get or create device UUID (stored in AsyncStorage)
+export const getDeviceUUID = async () => {
+  if (deviceUUID) return deviceUUID;
+  try {
+    let uuid = await AsyncStorage.getItem('@zenca_device_uuid');
+    if (!uuid) {
+      uuid = generateUUID();
+      await AsyncStorage.setItem('@zenca_device_uuid', uuid);
+    }
+    deviceUUID = uuid;
+    return uuid;
+  } catch (error) {
+    console.error('Failed to get/generate device UUID', error);
+    // Fallback – generate in-memory only
+    const fallback = generateUUID();
+    deviceUUID = fallback;
+    return fallback;
+  }
+};
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    // No auth — device identity only
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
+// Create Supabase client with custom headers (for RLS)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  globalHeaders: async () => {
+    const uuid = await getDeviceUUID();
+    return { 'x-device-uuid': uuid };
   },
 });
 
-/**
- * Sets the device_uuid as a Postgres session variable so RLS policies can use it.
- * Call this after generating the device_uuid on first launch.
- */
-export async function setSessionDeviceUUID(deviceUUID: string): Promise<void> {
-  const { error } = await supabase.rpc('set_config', {
-    setting: 'app.device_uuid',
-    value: deviceUUID,
-    is_local: false,
-  });
-  if (error) {
-    // set_config is a Postgres built-in; if the RPC isn't exposed, use a custom wrapper
-    console.warn('[Supabase] Could not set session device_uuid:', error.message);
-  }
-}
+// Initialize Supabase (preload UUID)
+export const initSupabase = async () => {
+  await getDeviceUUID();
+};

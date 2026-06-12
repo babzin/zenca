@@ -1,85 +1,107 @@
-
 import Geolocation from 'react-native-geolocation-service';
-import { Platform, PermissionsAndroid, Alert } from 'react-native';
-import type { DeviceLocation } from '../types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getDeviceUUID } from './supabase';
+import Constants from 'expo-constants';
+import { Alert, Platform } from 'react-native';
 
-// Demo coordinates (Abuja, Nigeria) for testing without real GPS
-export const DEMO_LOCATION: DeviceLocation = { lat: 9.0579, lng: 7.4951 };
+let watchId = null;
+let lastKnownPosition = null;
 
-export async function requestLocationPermission(): Promise<boolean> {
-  if (Platform.OS === 'ios') {
-    const auth = await Geolocation.requestAuthorization('whenInUse');
-    return auth === 'granted';
-  }
-
-  if (Platform.OS === 'android') {
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'Zenca Location Permission',
-        message: 'Zenca needs your location to send and receive nearby emergency alerts.',
-        buttonNeutral: 'Ask Later',
-        buttonNegative: 'Deny',
-        buttonPositive: 'Allow',
-      }
-    );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
-  }
-
-  return false;
-}
-
-export function getCurrentLocation(useDemoMode = false): Promise<DeviceLocation> {
-  if (useDemoMode) {
-    return Promise.resolve(DEMO_LOCATION);
-  }
-
-  return new Promise((resolve, reject) => {
+export const requestLocationPermission = () => {
+  return new Promise((resolve) => {
+    if (Platform.OS === 'ios') {
+      Geolocation.requestAuthorization('whenInUse');
+    }
     Geolocation.getCurrentPosition(
-      (position: Geolocation.GeoPosition) => {
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
+      () => resolve(true),
+      (err) => {
+        console.warn('Location permission error', err);
+        resolve(false);
       },
-      (error: Geolocation.GeoError) => {
-        console.warn('[Location] getCurrentPosition error:', error.message);
-        reject(new Error(error.message));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000,
-        forceRequestLocation: true,
-      }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   });
-}
+};
 
-export function watchLocation(
-  onUpdate: (loc: DeviceLocation) => void,
-  onError?: (err: string) => void
-): number {
-  return Geolocation.watchPosition(
-    (position: Geolocation.GeoPosition) => {
-      onUpdate({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      });
-    },
-    (error: Geolocation.GeoError) => {
-      console.warn('[Location] watchPosition error:', error.message);
-      onError?.(error.message);
-    },
-    {
-      enableHighAccuracy: true,
-      distanceFilter: 100,  // update every 100m movement
-      interval: 300000,     // or every 5 minutes on Android
-      fastestInterval: 60000,
+export const getCurrentPosition = (retries = 2) => {
+  return new Promise((resolve, reject) => {
+    if (lastKnownPosition) {
+      // Return cached immediately while fetching fresh in background
+      setTimeout(() => {
+        Geolocation.getCurrentPosition(
+          (pos) => {
+            lastKnownPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      }, 0);
+      resolve(lastKnownPosition);
+      return;
     }
-  );
-}
 
-export function clearWatch(watchId: number): void {
-  Geolocation.clearWatch(watchId);
-}
+    const attempt = (attemptsLeft) => {
+      Geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          lastKnownPosition = loc;
+          resolve(loc);
+        },
+        (err) => {
+          if (attemptsLeft > 0) {
+            setTimeout(() => attempt(attemptsLeft - 1), 1000);
+          } else {
+            reject(err);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+      );
+    };
+    attempt(retries);
+  });
+};
+
+export const updateDeviceLocation = async () => {
+  try {
+    const { lat, lng } = await getCurrentPosition(1);
+    const device_uuid = await getDeviceUUID();
+    const fcm_token = await AsyncStorage.getItem('@fcm_token');
+    if (!fcm_token) return;
+
+    const edgeFunctionUrl = Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl;
+    if (!edgeFunctionUrl) return;
+
+    await fetch(`${edgeFunctionUrl}/register-device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_uuid, fcm_token, lat, lng }),
+    }).catch(err => console.warn('Edge function call failed', err));
+  } catch (err) {
+    console.warn('Location update failed', err);
+  }
+};
+
+export const initLocationTracking = async () => {
+  const granted = await requestLocationPermission();
+  if (!granted) {
+    Alert.alert(
+      'Location Required',
+      'Zenca needs location access to show nearby alerts and send broadcasts. You can enable it in settings.'
+    );
+    return;
+  }
+  await updateDeviceLocation();
+  if (watchId) Geolocation.clearWatch(watchId);
+  watchId = Geolocation.watchPosition(
+    () => updateDeviceLocation(),
+    (err) => console.warn('Location watch error', err),
+    { interval: 300000, distanceFilter: 100, enableHighAccuracy: true }
+  );
+};
+
+export const stopLocationTracking = () => {
+  if (watchId) {
+    Geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+};

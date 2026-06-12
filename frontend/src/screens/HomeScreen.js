@@ -79,7 +79,7 @@ export default function HomeScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No active alerts within 5km.</Text>}
       />
 
-      {/* Confirmation Modal */}
+      
       <Modal
         visible={showConfirmModal}
         transparent={true}
@@ -88,7 +88,7 @@ export default function HomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>⚠️ Confirm Alert</Text>
+            <Text style={styles.modalTitle}>Confirm Alert</Text>
             <Text style={styles.modalText}>
               Are you absolutely sure? This will notify everyone within 5 km of your location.
             </Text>
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   alertMeta: { fontSize: 12, color: '#666' },
   empty: { textAlign: 'center', marginTop: 40, color: '#999' },
 
-  // Modal styles
+  
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',

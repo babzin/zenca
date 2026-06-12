@@ -12,18 +12,17 @@ import {
 
 export default function FeedbackScreen() {
   const handleEmail = (subject, body = '') => {
-    const emailUrl = `mailto:support@zenca.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const emailUrl = `mailto:zenca963@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     Linking.openURL(emailUrl).catch(() => {
       Alert.alert(
         'No Email App',
-        'Please email support@zenca.com manually from your email app.'
+        'Please email zenca963@gmail.com manually from your email app.'
       );
     });
   };
 
   const handleDemoRequest = () => {
-    // Replace with your actual demo request form link
-    const demoFormUrl = 'https://forms.gle/your-demo-form-link';
+    const demoFormUrl = 'https://tally.so/r/rjYXbL';
     Linking.openURL(demoFormUrl).catch(() => {
       Alert.alert(
         'Cannot Open Link',
@@ -51,7 +50,7 @@ export default function FeedbackScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>💡 Suggest a Feature</Text>
+        <Text style={styles.cardTitle}>Suggest a Feature</Text>
         <Text style={styles.cardText}>
           Have an idea to make Zenca better? We'd love to hear it.
         </Text>
@@ -77,7 +76,7 @@ export default function FeedbackScreen() {
       </View>
 
       <Text style={styles.note}>
-        You can also email us directly at: support@zenca.com
+        You can also email us directly at: zenca963@gmail.com
       </Text>
     </ScrollView>
   );

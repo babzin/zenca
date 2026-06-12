@@ -54,7 +54,7 @@ export default function MapScreen() {
         longitude: location.coords.longitude,
       });
 
-      const nearbyAlerts = await fetchNearbyAlerts(100, 0); // fetch many for map
+      const nearbyAlerts = await fetchNearbyAlerts(100, 0);
       setAlerts(nearbyAlerts);
     } catch (err) {
       console.error(err);

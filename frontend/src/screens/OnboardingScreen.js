@@ -15,21 +15,21 @@ const { width, height } = Dimensions.get('window');
 const slides = [
   {
     id: '1',
-    title: '🚨 Send Real Alerts Only',
+    title: 'Send Real Alerts Only',
     text: 'Only send alerts for genuine emergencies like kidnapping, banditry, or terrorism. False alarms can cause panic and waste resources.',
     color: '#d32f2f',
     backgroundColor: '#fff5f5',
   },
   {
     id: '2',
-    title: '✏️ Edit or Delete Within 1 Hour',
+    title: 'Edit or Delete Within 1 Hour',
     text: 'Made a mistake? You can edit or delete your alert within 1 hour. After that, it locks automatically to preserve evidence.',
     color: '#1976d2',
     backgroundColor: '#f0f7ff',
   },
   {
     id: '3',
-    title: '🔄 Deleting Notifies Everyone',
+    title: 'Deleting Notifies Everyone',
     text: 'If you delete an alert, all nearby users will be notified. This helps correct false information quickly and builds trust.',
     color: '#4caf50',
     backgroundColor: '#f0fff0',

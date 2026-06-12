@@ -21,7 +21,7 @@ export default {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.zenca.app",   // <-- this is what Expo needs
+      package: "com.zenca.app",
       permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
     },
     web: {

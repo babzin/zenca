@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, View, ActivityIndicator } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 // Services
 import { initSupabase } from './src/services/supabase';
@@ -28,27 +29,28 @@ import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilt
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Configure notification handler for duplicate filtering
+// Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    const data = notification.request.content.data;
-    if (data && data.latitude && data.longitude) {
-      const isDuplicate = await isDuplicateAlert(
-        parseFloat(data.latitude),
-        parseFloat(data.longitude)
-      );
-      if (isDuplicate) {
-        // Suppress duplicate notification
-        return {
-          shouldShowAlert: false,
-          shouldPlaySound: false,
-          shouldSetBadge: false,
-        };
+    try {
+      const data = notification.request.content.data;
+      if (data && data.latitude && data.longitude) {
+        const isDuplicate = await isDuplicateAlert(
+          parseFloat(data.latitude),
+          parseFloat(data.longitude)
+        );
+        if (isDuplicate) {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+          };
+        }
+        await recordAlertLocation(parseFloat(data.latitude), parseFloat(data.longitude));
       }
-      // Record this alert as seen
-      await recordAlertLocation(parseFloat(data.latitude), parseFloat(data.longitude));
+    } catch (err) {
+      console.warn('Duplicate filter error', err);
     }
-    // Show normal notification
     return {
       shouldShowAlert: true,
       shouldPlaySound: true,
@@ -60,11 +62,37 @@ Notifications.setNotificationHandler({
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: true,
         tabBarActiveTintColor: '#d32f2f',
         tabBarInactiveTintColor: '#757575',
-      }}
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          let IconComponent = Ionicons;
+
+          switch (route.name) {
+            case 'Alerts':
+              iconName = focused ? 'alert-circle' : 'alert-circle-outline';
+              break;
+            case 'Map':
+              iconName = focused ? 'map' : 'map-outline';
+              break;
+            case 'My Alerts':
+              iconName = focused ? 'list' : 'list-outline';
+              break;
+            case 'Emergency Contacts':
+              IconComponent = MaterialIcons;
+              iconName = focused ? 'contacts' : 'contacts';
+              break;
+            case 'Help':
+              iconName = focused ? 'help-circle' : 'help-circle-outline';
+              break;
+            default:
+              iconName = 'help';
+          }
+          return <IconComponent name={iconName} size={size} color={color} />;
+        },
+      })}
     >
       <Tab.Screen name="Alerts" component={HomeScreen} />
       <Tab.Screen name="Map" component={MapScreen} />
@@ -83,19 +111,32 @@ export default function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // Initialize Supabase (generates device UUID)
         await initSupabase();
 
-        // Request permissions
-        await requestPermissions();
-        await registerForPushNotifications();
-        await initLocationTracking();
+        try {
+          await requestPermissions();
+        } catch (err) {
+          console.error('Permission request failed', err);
+          Alert.alert('Warning', 'Notifications may not work: ' + err.message);
+        }
 
-        // Check if onboarding has been shown
+        try {
+          await registerForPushNotifications();
+        } catch (err) {
+          console.error('Push registration failed', err);
+          Alert.alert('Warning', 'Push notifications may not work: ' + err.message);
+        }
+
+        try {
+          await initLocationTracking();
+        } catch (err) {
+          console.error('Location tracking failed', err);
+          Alert.alert('Warning', 'Location features may not work: ' + err.message);
+        }
+
         const onboardingSeen = await AsyncStorage.getItem('@zenca_onboarding_seen');
         setShowOnboarding(!onboardingSeen);
 
-        // Disclaimer is shown after onboarding (or immediately if onboarding already seen)
         if (onboardingSeen) {
           const disclaimerSeen = await AsyncStorage.getItem('@zenca_disclaimer_seen');
           setShowDisclaimer(!disclaimerSeen);
@@ -103,8 +144,9 @@ export default function App() {
 
         setAppReady(true);
       } catch (error) {
-        console.error('Init error', error);
+        console.error('Fatal init error', error);
         Alert.alert('Init Error', error.message);
+        setAppReady(true);
       }
     };
 
@@ -124,7 +166,6 @@ export default function App() {
       <OnboardingScreen
         onComplete={() => {
           setShowOnboarding(false);
-          // After onboarding, check disclaimer
           AsyncStorage.getItem('@zenca_disclaimer_seen').then((seen) => {
             setShowDisclaimer(!seen);
           });
@@ -134,13 +175,7 @@ export default function App() {
   }
 
   if (showDisclaimer) {
-    return (
-      <EmergencyDisclaimerScreen
-        onAgree={() => {
-          setShowDisclaimer(false);
-        }}
-      />
-    );
+    return <EmergencyDisclaimerScreen onAgree={() => setShowDisclaimer(false)} />;
   }
 
   return (

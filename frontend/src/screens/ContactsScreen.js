@@ -29,11 +29,26 @@ export default function ContactsScreen() {
   const [editingContact, setEditingContact] = useState(null);
   const [newName, setNewName] = useState('');
   const [newNumber, setNewNumber] = useState('');
-  const [activeTab, setActiveTab] = useState('emergency'); // 'emergency' or 'my'
+  const [activeTab, setActiveTab] = useState('emergency');
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const stored = await loadContacts();
-    setContacts(stored);
+    try {
+      let stored = await loadContacts();
+      // If no contacts exist, load defaults for current state
+      if (stored.length === 0) {
+        const state = await getCurrentState();
+        const defaults = getDefaultContactsForState(state);
+        await resetToDefaults(defaults);
+        stored = await loadContacts();
+      }
+      setContacts(stored);
+    } catch (error) {
+      console.error('Failed to load contacts', error);
+      Alert.alert('Error', 'Could not load contacts.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -81,6 +96,16 @@ export default function ContactsScreen() {
     />
   );
 
+  const emergencyContacts = contacts.filter(c => c.isDefault === true);
+  const myContacts = contacts.filter(c => c.isDefault !== true);
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={{ textAlign: 'center', marginTop: 40 }}>Loading contacts...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -107,7 +132,7 @@ export default function ContactsScreen() {
         <>
           <Button title="Reset to State Defaults" onPress={handleReset} color="#1976d2" />
           <FlatList
-            data={contacts.filter(c => c.isDefault)}
+            data={emergencyContacts}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             ListEmptyComponent={
@@ -120,7 +145,7 @@ export default function ContactsScreen() {
       {activeTab === 'my' && (
         <>
           <FlatList
-            data={contacts.filter(c => !c.isDefault)}
+            data={myContacts}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             ListEmptyComponent={

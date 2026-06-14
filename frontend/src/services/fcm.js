@@ -40,6 +40,7 @@ export const registerForPushNotifications = async (retry = true) => {
     const token = (await Notifications.getExpoPushTokenAsync()).data;
     await AsyncStorage.setItem('@fcm_token', token);
     const device_uuid = await getDeviceUUID();
+
     let lat = 0, lng = 0;
     try {
       const pos = await getCurrentPosition(1);
@@ -51,7 +52,7 @@ export const registerForPushNotifications = async (retry = true) => {
 
     const edgeFunctionUrl = Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl;
     if (!edgeFunctionUrl) {
-      console.warn('supabaseEdgeFunctionUrl not set');
+      console.warn('supabaseEdgeFunctionUrl not set – push registration skipped');
       return;
     }
 
@@ -60,6 +61,7 @@ export const registerForPushNotifications = async (retry = true) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_uuid, fcm_token: token, lat, lng }),
     });
+
     if (!response.ok && retry) {
       setTimeout(() => registerForPushNotifications(false), 3000);
     }

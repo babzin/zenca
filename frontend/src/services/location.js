@@ -9,24 +9,29 @@ let lastKnownPosition = null;
 
 export const requestLocationPermission = () => {
   return new Promise((resolve) => {
-    if (Platform.OS === 'ios') {
-      Geolocation.requestAuthorization('whenInUse');
+    try {
+      if (Platform.OS === 'ios') {
+        Geolocation.requestAuthorization('whenInUse');
+      }
+      Geolocation.getCurrentPosition(
+        () => resolve(true),
+        (err) => {
+          console.warn('Location permission error', err);
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } catch (err) {
+      console.error('Unexpected error requesting location', err);
+      resolve(false);
     }
-    Geolocation.getCurrentPosition(
-      () => resolve(true),
-      (err) => {
-        console.warn('Location permission error', err);
-        resolve(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
   });
 };
 
 export const getCurrentPosition = (retries = 2) => {
   return new Promise((resolve, reject) => {
     if (lastKnownPosition) {
-      // Return cached immediately while fetching fresh in background
+      // Return cached immediately, refresh in background
       setTimeout(() => {
         Geolocation.getCurrentPosition(
           (pos) => {
@@ -69,7 +74,10 @@ export const updateDeviceLocation = async () => {
     if (!fcm_token) return;
 
     const edgeFunctionUrl = Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl;
-    if (!edgeFunctionUrl) return;
+    if (!edgeFunctionUrl) {
+      console.warn('Edge function URL not set');
+      return;
+    }
 
     await fetch(`${edgeFunctionUrl}/register-device`, {
       method: 'POST',
@@ -82,21 +90,28 @@ export const updateDeviceLocation = async () => {
 };
 
 export const initLocationTracking = async () => {
-  const granted = await requestLocationPermission();
-  if (!granted) {
-    Alert.alert(
-      'Location Required',
-      'Zenca needs location access to show nearby alerts and send broadcasts. You can enable it in settings.'
+  try {
+    const granted = await requestLocationPermission();
+    if (!granted) {
+      Alert.alert(
+        'Location Required',
+        'Zenca needs location access to show nearby alerts and send broadcasts. You can enable it in settings.'
+      );
+      return;
+    }
+    await updateDeviceLocation();
+    if (watchId) Geolocation.clearWatch(watchId);
+    watchId = Geolocation.watchPosition(
+      () => {
+        updateDeviceLocation().catch(err => console.warn('Background location update error', err));
+      },
+      (err) => console.warn('Location watch error', err),
+      { interval: 300000, distanceFilter: 100, enableHighAccuracy: true }
     );
-    return;
+  } catch (err) {
+    console.error('Failed to initialize location tracking', err);
+    throw err;
   }
-  await updateDeviceLocation();
-  if (watchId) Geolocation.clearWatch(watchId);
-  watchId = Geolocation.watchPosition(
-    () => updateDeviceLocation(),
-    (err) => console.warn('Location watch error', err),
-    { interval: 300000, distanceFilter: 100, enableHighAccuracy: true }
-  );
 };
 
 export const stopLocationTracking = () => {

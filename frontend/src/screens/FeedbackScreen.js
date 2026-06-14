@@ -37,7 +37,7 @@ export default function FeedbackScreen() {
       <Text style={styles.subtitle}>We're here to help you stay safe.</Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>🐛 Report a Problem</Text>
+        <Text style={styles.cardTitle}>Report a Problem</Text>
         <Text style={styles.cardText}>
           Found a bug or issue? Let us know so we can fix it quickly.
         </Text>
@@ -63,7 +63,7 @@ export default function FeedbackScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>👥 Request a Demo</Text>
+        <Text style={styles.cardTitle}>Request a Demo</Text>
         <Text style={styles.cardText}>
           Interested in Zenca for your community, organization, or state?
         </Text>

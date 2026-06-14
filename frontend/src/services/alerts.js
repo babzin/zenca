@@ -2,7 +2,6 @@ import { supabase } from './supabase';
 import { getCurrentPosition } from './location';
 import Constants from 'expo-constants';
 import { getDeviceUUID } from './supabase';
-import Constants from 'expo-constants';
 
 
 async function sendPrivateNotification(device_uuid, title, body) {

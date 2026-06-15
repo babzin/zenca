@@ -14,12 +14,12 @@ import { useNavigation } from '@react-navigation/native';
 import { ContactItem } from '../components/ContactItem';
 import {
   loadContacts,
-  getDefaultContactsForState,
   resetToDefaults,
   addContact,
   updateContact,
   deleteContact,
 } from '../services/contactsStorage';
+import { getDefaultContactsForState } from '../utils/nigeriaContacts';
 import { getCurrentState } from '../utils/reverseGeocode';
 
 export default function ContactsScreen() {
@@ -35,7 +35,6 @@ export default function ContactsScreen() {
   const load = async () => {
     try {
       let stored = await loadContacts();
-      // If no contacts exist, load defaults for current state
       if (stored.length === 0) {
         const state = await getCurrentState();
         const defaults = getDefaultContactsForState(state);

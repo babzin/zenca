@@ -1,69 +1,44 @@
-import Geolocation from 'react-native-geolocation-service';
+import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDeviceUUID } from './supabase';
 import Constants from 'expo-constants';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 
-let watchId = null;
+let locationSubscription = null;
 let lastKnownPosition = null;
 
-export const requestLocationPermission = () => {
-  return new Promise((resolve) => {
-    try {
-      if (Platform.OS === 'ios') {
-        Geolocation.requestAuthorization('whenInUse');
-      }
-      Geolocation.getCurrentPosition(
-        () => resolve(true),
-        (err) => {
-          console.warn('Location permission error', err);
-          resolve(false);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } catch (err) {
-      console.error('Unexpected error requesting location', err);
-      resolve(false);
+export const requestLocationPermission = async () => {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status === 'granted') {
+      return true;
     }
-  });
+    console.warn('Location permission denied', status);
+    return false;
+  } catch (err) {
+    console.error('Error requesting location permission', err);
+    return false;
+  }
 };
 
-export const getCurrentPosition = (retries = 2) => {
-  return new Promise((resolve, reject) => {
-    if (lastKnownPosition) {
-      // Return cached immediately, refresh in background
-      setTimeout(() => {
-        Geolocation.getCurrentPosition(
-          (pos) => {
-            lastKnownPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          },
-          () => {},
-          { enableHighAccuracy: true, timeout: 5000 }
-        );
-      }, 0);
-      resolve(lastKnownPosition);
-      return;
+export const getCurrentPosition = async (retries = 2) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const loc = { lat: location.coords.latitude, lng: location.coords.longitude };
+      lastKnownPosition = loc;
+      return loc;
+    } catch (err) {
+      console.warn(`Location attempt ${attempt} failed:`, err);
+      if (attempt === retries) {
+        throw err;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-
-    const attempt = (attemptsLeft) => {
-      Geolocation.getCurrentPosition(
-        (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          lastKnownPosition = loc;
-          resolve(loc);
-        },
-        (err) => {
-          if (attemptsLeft > 0) {
-            setTimeout(() => attempt(attemptsLeft - 1), 1000);
-          } else {
-            reject(err);
-          }
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-      );
-    };
-    attempt(retries);
-  });
+  }
+  throw new Error('Failed to get location after retries');
 };
 
 export const updateDeviceLocation = async () => {
@@ -93,30 +68,25 @@ export const initLocationTracking = async () => {
   try {
     const granted = await requestLocationPermission();
     if (!granted) {
-      Alert.alert(
-        'Location Required',
-        'Zenca needs location access to show nearby alerts and send broadcasts. You can enable it in settings.'
-      );
+      Alert.alert('Location Required', 'Zenca needs location access to show nearby alerts and send broadcasts.');
       return;
     }
     await updateDeviceLocation();
-    if (watchId) Geolocation.clearWatch(watchId);
-    watchId = Geolocation.watchPosition(
-      () => {
-        updateDeviceLocation().catch(err => console.warn('Background location update error', err));
-      },
-      (err) => console.warn('Location watch error', err),
-      { interval: 300000, distanceFilter: 100, enableHighAccuracy: true }
+    if (locationSubscription) {
+      await locationSubscription.remove();
+    }
+    locationSubscription = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.High, timeInterval: 300000, distanceInterval: 100 },
+      () => updateDeviceLocation()
     );
   } catch (err) {
     console.error('Failed to initialize location tracking', err);
-    throw err;
   }
 };
 
 export const stopLocationTracking = () => {
-  if (watchId) {
-    Geolocation.clearWatch(watchId);
-    watchId = null;
+  if (locationSubscription) {
+    locationSubscription.remove();
+    locationSubscription = null;
   }
 };

@@ -22,7 +22,11 @@ export default {
         backgroundColor: "#ffffff"
       },
       package: "com.zenca.app",
-      permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      permissions: [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -37,6 +41,19 @@ export default {
           ios: {
             googleServicesFile: "./GoogleService-Info.plist"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "Zenca needs your location to show nearby emergency alerts."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/notification-icon.png",
+          color: "#d32f2f"
         }
       ]
     ],

@@ -29,7 +29,7 @@ import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilt
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Configure notification handler
+// Configure notification handler for duplicate filtering (safe with try/catch)
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
@@ -111,8 +111,10 @@ export default function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
+        // 1. Initialize Supabase (generates device UUID)
         await initSupabase();
 
+        // 2. Request permissions – each wrapped individually to prevent crash
         try {
           await requestPermissions();
         } catch (err) {
@@ -127,13 +129,17 @@ export default function App() {
           Alert.alert('Warning', 'Push notifications may not work: ' + err.message);
         }
 
-        try {
-          await initLocationTracking();
-        } catch (err) {
-          console.error('Location tracking failed', err);
-          Alert.alert('Warning', 'Location features may not work: ' + err.message);
-        }
+        // 3. Delay location initialization to avoid race conditions after permission grant
+        setTimeout(async () => {
+          try {
+            await initLocationTracking();
+          } catch (err) {
+            console.error('Location tracking failed', err);
+            Alert.alert('Warning', 'Location features may not work: ' + err.message);
+          }
+        }, 1000);
 
+        // 4. Check if onboarding has been shown
         const onboardingSeen = await AsyncStorage.getItem('@zenca_onboarding_seen');
         setShowOnboarding(!onboardingSeen);
 
@@ -146,7 +152,7 @@ export default function App() {
       } catch (error) {
         console.error('Fatal init error', error);
         Alert.alert('Init Error', error.message);
-        setAppReady(true);
+        setAppReady(true); // still show app to avoid stuck spinner
       }
     };
 

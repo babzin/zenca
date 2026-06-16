@@ -16,7 +16,6 @@ import { initLocationTracking } from './src/services/location';
 import HomeScreen from './src/screens/HomeScreen';
 import MyAlertsScreen from './src/screens/MyAlertsScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
-import MapScreen from './src/screens/MapScreen';
 import FeedbackScreen from './src/screens/FeedbackScreen';
 import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 import TermsScreen from './src/screens/TermsScreen';
@@ -29,7 +28,6 @@ import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilt
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Configure notification handler for duplicate filtering
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
@@ -74,9 +72,6 @@ function MainTabs() {
             case 'Alerts':
               iconName = focused ? 'alert-circle' : 'alert-circle-outline';
               break;
-            case 'Map':
-              iconName = focused ? 'map' : 'map-outline';
-              break;
             case 'My Alerts':
               iconName = focused ? 'list' : 'list-outline';
               break;
@@ -95,7 +90,6 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Alerts" component={HomeScreen} />
-      <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="My Alerts" component={MyAlertsScreen} />
       <Tab.Screen name="Emergency Contacts" component={ContactsScreen} />
       <Tab.Screen name="Help" component={FeedbackScreen} />
@@ -111,10 +105,8 @@ export default function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        // 1. Initialize Supabase (generates device UUID)
         await initSupabase();
 
-        // 2. Request permissions – each wrapped individually
         try {
           await requestPermissions();
         } catch (err) {
@@ -129,7 +121,6 @@ export default function App() {
           Alert.alert('Warning', 'Push notifications may not work: ' + err.message);
         }
 
-        // 3. Delayed location initialization (prevents race condition)
         setTimeout(async () => {
           try {
             await initLocationTracking();
@@ -139,7 +130,6 @@ export default function App() {
           }
         }, 1000);
 
-        // 4. Check onboarding and disclaimer
         const onboardingSeen = await AsyncStorage.getItem('@zenca_onboarding_seen');
         setShowOnboarding(!onboardingSeen);
 

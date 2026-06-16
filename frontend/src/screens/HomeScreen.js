@@ -339,10 +339,10 @@ export default function HomeScreen() {
         />
         <View style={styles.photoRow}>
           <TouchableOpacity style={styles.photoButton} onPress={handleTakePhoto}>
-            <Text style={styles.photoButtonText}>📷 Camera</Text>
+            <Text style={styles.photoButtonText}>Camera</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
-            <Text style={styles.photoButtonText}>🖼️ Gallery</Text>
+            <Text style={styles.photoButtonText}>Gallery</Text>
           </TouchableOpacity>
         </View>
         {photoUri && (
@@ -355,13 +355,13 @@ export default function HomeScreen() {
         )}
         <View style={styles.buttonRow}>
           <Button
-            title="🚨 DANGER 🚨"
+            title="DANGER"
             onPress={() => openConfirmModal(false)}
             disabled={loading}
             color="#d32f2f"
           />
           <Button
-            title="🔍 Test Alert"
+            title="Test Alert"
             onPress={() => openConfirmModal(true)}
             disabled={loading}
             color="#757575"
@@ -413,20 +413,20 @@ export default function HomeScreen() {
                   disabled={reportingId === item.id}
                 >
                   <Text style={styles.actionButtonText}>
-                    {reportingId === item.id ? '...' : '🚩 Report'}
+                    {reportingId === item.id ? '...' : 'Report'}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleShareAlert(item)}
                   style={styles.actionButton}
                 >
-                  <Text style={styles.actionButtonText}>📤 Share</Text>
+                  <Text style={styles.actionButtonText}>Share</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleViewOnMap(item)}
                   style={[styles.actionButton, styles.mapButton]}
                 >
-                  <Text style={styles.actionButtonText}>📍 View on Map</Text>
+                  <Text style={styles.actionButtonText}>View on Map</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -462,7 +462,7 @@ export default function HomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {isTestMode ? '🔍 Send Test Alert?' : `⚠️ Confirm ${selectedCategory.toUpperCase()} Alert`}
+              {isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
             </Text>
             <Text style={styles.modalText}>
               {isTestMode

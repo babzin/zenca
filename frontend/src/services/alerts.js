@@ -1,6 +1,6 @@
 export const sendAlert = async (text, category = 'other', photoUri = null) => {
   const { lat, lng } = await getCurrentPosition(3);
-  const device_uuid = await getDeviceUUID(); // get UUID
+  const device_uuid = await getDeviceUUID();
 
   let photoUrl = null;
   if (photoUri) {
@@ -14,7 +14,7 @@ export const sendAlert = async (text, category = 'other', photoUri = null) => {
       category: category,
       location: `POINT(${lng} ${lat})`,
       photo_url: photoUrl,
-      device_uuid: device_uuid, // explicitly include device_uuid
+      device_uuid: device_uuid,
     })
     .select('id')
     .single();

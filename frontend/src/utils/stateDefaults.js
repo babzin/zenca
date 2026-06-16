@@ -1,4 +1,4 @@
-// Nigerian states emergency contacts (pre-loaded defaults)
+
 export const stateContacts = {
   'Lagos': [
     { id: 'police_lagos', name: 'Police', number: '112' },

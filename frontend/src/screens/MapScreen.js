@@ -88,7 +88,7 @@ export default function MapScreen() {
     }
   };
 
-  // Build GeoJSON features for markers
+  
   const features = alerts
     .filter(alert => alert.latitude && alert.longitude)
     .map(alert => ({
@@ -152,7 +152,7 @@ export default function MapScreen() {
         styleURL={OPENFREEMAP_STYLE}
         logoEnabled={false}
         attributionEnabled={false}
-        onPress={closeCallout} // tap map to close callout
+        onPress={closeCallout}
       >
         <MapboxGL.Camera
           ref={cameraRef}

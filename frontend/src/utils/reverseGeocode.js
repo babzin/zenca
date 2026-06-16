@@ -8,7 +8,6 @@ export const getCurrentState = async () => {
     );
     const data = await response.json();
     let state = data.address?.state;
-    // Map "Federal Capital Territory" to "FCT" so it matches stateContacts keys
     if (state === 'Federal Capital Territory') state = 'FCT';
     if (state && typeof state === 'string') return state;
     return 'Lagos';

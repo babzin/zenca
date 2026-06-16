@@ -33,7 +33,6 @@ export const getDeviceUUID = async () => {
   }
 };
 
-// Create Supabase client with custom headers (for RLS)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   globalHeaders: async () => {
     const uuid = await getDeviceUUID();
@@ -41,7 +40,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Initialize Supabase (preload UUID)
 export const initSupabase = async () => {
   await getDeviceUUID();
 };

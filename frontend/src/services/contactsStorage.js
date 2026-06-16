@@ -3,7 +3,6 @@ import { getDefaultContactsForState } from '../utils/nigeriaContacts';
 
 const STORAGE_KEY = '@zenca_contacts';
 
-// Load all contacts from storage
 export const loadContacts = async () => {
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
@@ -17,7 +16,6 @@ export const loadContacts = async () => {
   }
 };
 
-// Save full contacts array
 const saveContacts = async (contacts) => {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
@@ -26,7 +24,6 @@ const saveContacts = async (contacts) => {
   }
 };
 
-// Reset to state defaults (mark as default contacts)
 export const resetToDefaults = async (defaultContacts) => {
   const contactsWithFlag = defaultContacts.map(contact => ({
     ...contact,
@@ -35,7 +32,6 @@ export const resetToDefaults = async (defaultContacts) => {
   await saveContacts(contactsWithFlag);
 };
 
-// Add a new user contact (not default)
 export const addContact = async (name, number) => {
   const contacts = await loadContacts();
   const newContact = {
@@ -48,7 +44,6 @@ export const addContact = async (name, number) => {
   await saveContacts(contacts);
 };
 
-// Update an existing contact
 export const updateContact = async (id, name, number) => {
   const contacts = await loadContacts();
   const index = contacts.findIndex(c => c.id === id);
@@ -58,20 +53,17 @@ export const updateContact = async (id, name, number) => {
   }
 };
 
-// Delete a contact by id
 export const deleteContact = async (id) => {
   const contacts = await loadContacts();
   const filtered = contacts.filter(c => c.id !== id);
   await saveContacts(filtered);
 };
 
-// Get only emergency (default) contacts
 export const getEmergencyContacts = async () => {
   const contacts = await loadContacts();
   return contacts.filter(c => c.isDefault === true);
 };
 
-// Get only user‑added contacts
 export const getMyContacts = async () => {
   const contacts = await loadContacts();
   return contacts.filter(c => c.isDefault !== true);

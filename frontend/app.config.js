@@ -18,7 +18,7 @@ export default {
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           "Zenca needs your location to show nearby alerts and send broadcasts within 5km.",
-        // NSLocationAlwaysAndWhenInUseUsageDescription removed (no live sharing)
+       
       },
     },
     android: {
@@ -30,7 +30,6 @@ export default {
       permissions: [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        // ACCESS_BACKGROUND_LOCATION removed (no live sharing)
       ],
     },
     web: {
@@ -51,13 +50,13 @@ export default {
       [
         "@rnmapbox/maps",
         {
-          RNMapboxMapsImpl: "mapbox", // uses MapLibre GL Native, no API key needed
+          RNMapboxMapsImpl: "mapbox",
         },
       ],
     ],
     extra: {
       eas: {
-        projectId: "2eac6f53-97bd-42c4-a2ce-94043f908656", // Your EAS project ID
+        projectId: "2eac6f53-97bd-42c4-a2ce-94043f908656",
       },
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

@@ -1,4 +1,4 @@
-// src/utils/nigeriaContacts.js
+
 export const stateContacts = {
   Lagos: [
     { id: 'police_lagos', name: 'Police', number: '112' },

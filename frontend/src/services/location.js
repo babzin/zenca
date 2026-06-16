@@ -10,13 +10,9 @@ let lastKnownPosition = null;
 export const requestLocationPermission = async () => {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      return true;
-    }
-    console.warn('Location permission denied', status);
-    return false;
+    return status === 'granted';
   } catch (err) {
-    console.error('Error requesting location permission', err);
+    console.error('Permission error', err);
     return false;
   }
 };
@@ -32,9 +28,7 @@ export const getCurrentPosition = async (retries = 2) => {
       return loc;
     } catch (err) {
       console.warn(`Location attempt ${attempt} failed:`, err);
-      if (attempt === retries) {
-        throw err;
-      }
+      if (attempt === retries) throw err;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
@@ -47,18 +41,13 @@ export const updateDeviceLocation = async () => {
     const device_uuid = await getDeviceUUID();
     const fcm_token = await AsyncStorage.getItem('@fcm_token');
     if (!fcm_token) return;
-
     const edgeFunctionUrl = Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl;
-    if (!edgeFunctionUrl) {
-      console.warn('Edge function URL not set');
-      return;
-    }
-
+    if (!edgeFunctionUrl) return;
     await fetch(`${edgeFunctionUrl}/register-device`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_uuid, fcm_token, lat, lng }),
-    }).catch(err => console.warn('Edge function call failed', err));
+    });
   } catch (err) {
     console.warn('Location update failed', err);
   }
@@ -68,7 +57,7 @@ export const initLocationTracking = async () => {
   try {
     const granted = await requestLocationPermission();
     if (!granted) {
-      Alert.alert('Location Required', 'Zenca needs location access to show nearby alerts and send broadcasts.');
+      Alert.alert('Location Required', 'Zenca needs location to show nearby alerts.');
       return;
     }
     await updateDeviceLocation();
@@ -80,7 +69,7 @@ export const initLocationTracking = async () => {
       () => updateDeviceLocation()
     );
   } catch (err) {
-    console.error('Failed to initialize location tracking', err);
+    console.error('Location init error', err);
   }
 };
 

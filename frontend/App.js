@@ -7,12 +7,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, View, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
-
+// Services
 import { initSupabase } from './src/services/supabase';
 import { requestPermissions, registerForPushNotifications } from './src/services/fcm';
 import { initLocationTracking } from './src/services/location';
 
-
+// Screens
 import HomeScreen from './src/screens/HomeScreen';
 import MyAlertsScreen from './src/screens/MyAlertsScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
@@ -23,13 +23,13 @@ import TermsScreen from './src/screens/TermsScreen';
 import EmergencyDisclaimerScreen from './src/screens/EmergencyDisclaimerScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 
-
+// Utils
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-
+// Configure notification handler for duplicate filtering
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
@@ -111,9 +111,10 @@ export default function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        
+        // 1. Initialize Supabase (generates device UUID)
         await initSupabase();
 
+        // 2. Request permissions – each wrapped individually
         try {
           await requestPermissions();
         } catch (err) {
@@ -128,6 +129,7 @@ export default function App() {
           Alert.alert('Warning', 'Push notifications may not work: ' + err.message);
         }
 
+        // 3. Delayed location initialization (prevents race condition)
         setTimeout(async () => {
           try {
             await initLocationTracking();
@@ -137,6 +139,7 @@ export default function App() {
           }
         }, 1000);
 
+        // 4. Check onboarding and disclaimer
         const onboardingSeen = await AsyncStorage.getItem('@zenca_onboarding_seen');
         setShowOnboarding(!onboardingSeen);
 

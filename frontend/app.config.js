@@ -18,7 +18,6 @@ export default {
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           "Zenca needs your location to show nearby alerts and send broadcasts within 5km.",
-       
       },
     },
     android: {

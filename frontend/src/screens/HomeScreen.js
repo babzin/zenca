@@ -17,13 +17,14 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchNearbyAlerts, sendAlert, reportAlert, hasUserReportedAlert } from '../services/alerts';
+import { getCurrentPosition } from '../services/location';
 import CategorySelector from '../components/CategorySelector';
 
 const TEST_ALERTS_KEY = '@zenca_test_alerts';
 const PAGE_SIZE = 20;
 
 export default function HomeScreen() {
-  // Real alerts state (paginated)
+  
   const [allAlerts, setAllAlerts] = useState([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -31,10 +32,10 @@ export default function HomeScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Test alerts state
+  
   const [testAlerts, setTestAlerts] = useState([]);
 
-  // Form state
+  
   const [dangerText, setDangerText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('other');
   const [photoUri, setPhotoUri] = useState(null);
@@ -42,7 +43,7 @@ export default function HomeScreen() {
   const [isTestMode, setIsTestMode] = useState(false);
   const [reportingId, setReportingId] = useState(null);
 
-  // Load test alerts from AsyncStorage
+  
   const loadTestAlerts = async () => {
     try {
       const stored = await AsyncStorage.getItem(TEST_ALERTS_KEY);
@@ -68,7 +69,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Load real alerts (paginated, resets when page=0)
+  
   const loadRealAlerts = async (reset = true, pageNum = 0) => {
     try {
       if (reset) {
@@ -95,7 +96,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Initial load and refresh interval
+  
   useEffect(() => {
     loadRealAlerts(true, 0);
     loadTestAlerts();
@@ -106,7 +107,7 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load more when scrolling
+ 
   const loadMore = () => {
     if (!hasMore || loadingMore || loading) return;
     const nextPage = page + 1;
@@ -114,7 +115,7 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
-  // Image pickers
+  
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -146,7 +147,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Send real alert
+  
   const handleSendRealAlert = async () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -166,7 +167,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Send test alert (local only)
+  
   const handleSendTestAlert = () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -208,7 +209,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Report false alert
+  
   const handleReport = async (alertId) => {
     setReportingId(alertId);
     try {
@@ -239,7 +240,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Share alert externally
+  
   const handleShareAlert = async (alert) => {
     try {
       const categoryIcon = {
@@ -266,7 +267,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Open external map with alert location
+
   const handleViewOnMap = (alert) => {
     if (!alert.latitude || !alert.longitude) {
       Alert.alert('Error', 'Location data not available for this alert.');
@@ -278,7 +279,41 @@ export default function HomeScreen() {
     });
   };
 
-  // Clear test alerts
+  
+  const handleSOSWhatsApp = async () => {
+    try {
+     
+      let location = await getCurrentPosition(2);
+      const lat = location.lat;
+      const lng = location.lng;
+      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+      
+      const categoryIcon = {
+        kidnapping: '🚨',
+        banditry: '⚔️',
+        terrorism: '💣',
+        accident: '🚑',
+        other: '⚠️',
+      }[selectedCategory] || '⚠️';
+
+      const message = `${categoryIcon} *ZENCA SOS ALERT*\n\n` +
+        `Type: ${selectedCategory.toUpperCase()}\n` +
+        `Description: ${dangerText || 'No details provided'}\n` +
+        `Location: ${mapsLink}\n\n` +
+        `Please stay safe and verify this information.`;
+
+      
+      await Share.share({
+        message: message,
+        title: `Zenca SOS - ${selectedCategory.toUpperCase()}`,
+      });
+    } catch (err) {
+      Alert.alert('Error', 'Could not send SOS. Please enable location and try again.');
+    }
+  };
+
+  
   const clearTestAlerts = async () => {
     Alert.alert(
       'Clear Test Alerts',
@@ -297,7 +332,7 @@ export default function HomeScreen() {
     );
   };
 
-  // Helpers for UI
+ 
   const getCategoryColor = (category) => {
     const colors = {
       kidnapping: '#d32f2f',
@@ -320,7 +355,7 @@ export default function HomeScreen() {
     return icons[category] || '⚠️';
   };
 
-  // Merge real + test alerts, test alerts first
+  
   const combinedAlerts = [...testAlerts, ...allAlerts];
   const isEmpty = combinedAlerts.length === 0 && !loading;
 
@@ -349,7 +384,7 @@ export default function HomeScreen() {
           <View style={styles.previewContainer}>
             <Image source={{ uri: photoUri }} style={styles.previewImage} />
             <TouchableOpacity onPress={() => setPhotoUri(null)} style={styles.removePhoto}>
-              <Text style={styles.removePhotoText}>✖ Remove</Text>
+              <Text style={styles.removePhotoText}>Remove</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -365,6 +400,12 @@ export default function HomeScreen() {
             onPress={() => openConfirmModal(true)}
             disabled={loading}
             color="#757575"
+          />
+          <Button
+            title="SOS WhatsApp"
+            onPress={handleSOSWhatsApp}
+            disabled={loading}
+            color="#25D366"
           />
         </View>
         {loading && <ActivityIndicator size="small" style={{ marginTop: 10 }} />}
@@ -462,7 +503,7 @@ export default function HomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
+              {isTestMode ? '🔍 Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
             </Text>
             <Text style={styles.modalText}>
               {isTestMode
@@ -534,6 +575,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
+    flexWrap: 'wrap',
   },
   listHeader: {
     flexDirection: 'row',
@@ -600,11 +642,6 @@ const styles = StyleSheet.create({
   },
   mapButton: {
     backgroundColor: '#1976d2',
-  },
-  mapButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
   },
   empty: { textAlign: 'center', marginTop: 40, color: '#999' },
   endMessage: { textAlign: 'center', padding: 16, color: '#999', fontSize: 12 },

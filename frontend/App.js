@@ -22,7 +22,7 @@ import TermsScreen from './src/screens/TermsScreen';
 import EmergencyDisclaimerScreen from './src/screens/EmergencyDisclaimerScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 
-// Utils
+
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
 
 const Tab = createBottomTabNavigator();

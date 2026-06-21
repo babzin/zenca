@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Button, Alert, TextInput, Modal, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  Button,
+  Alert,
+  TextInput,
+  Modal,
+  StyleSheet,
+  Image,
+} from 'react-native';
 import { fetchMyAlerts, updateAlert, deleteAlert } from '../services/alerts';
 
-const getCategoryIcon = (category) => {
-  const icons = {
-    kidnapping: '🚨',
-    banditry: '⚔️',
-    terrorism: '💣',
-    accident: '🚑',
-    other: '⚠️',
+const getCategoryName = (category) => {
+  const names = {
+    kidnapping: 'Kidnapping',
+    banditry: 'Banditry',
+    terrorism: 'Terrorism',
+    accident: 'Accident',
+    other: 'Other',
   };
-  return icons[category] || '⚠️';
+  return names[category] || 'Other';
 };
 
 const getCategoryColor = (category) => {
@@ -31,8 +41,13 @@ export default function MyAlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
-    const myAlerts = await fetchMyAlerts();
-    setAlerts(myAlerts);
+    try {
+      const myAlerts = await fetchMyAlerts();
+      setAlerts(myAlerts);
+    } catch (err) {
+      console.error('Load error:', err);
+      Alert.alert('Error', 'Could not load your alerts.');
+    }
   };
 
   useEffect(() => {
@@ -47,15 +62,14 @@ export default function MyAlertsScreen() {
   };
 
   const handleSaveEdit = async () => {
-    if (editingId) {
-      try {
-        await updateAlert(editingId, editText);
-        setEditingId(null);
-        load();
-        Alert.alert('Updated', 'Alert updated. Neighbors notified.');
-      } catch (err) {
-        Alert.alert('Error', err.message);
-      }
+    if (!editingId) return;
+    try {
+      await updateAlert(editingId, editText);
+      setEditingId(null);
+      await load(); // refresh list
+      Alert.alert('Success', 'Alert updated. Neighbors notified.');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Could not update alert.');
     }
   };
 
@@ -69,8 +83,13 @@ export default function MyAlertsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteAlert(id);
-            load();
+            try {
+              await deleteAlert(id);
+              await load(); // refresh list
+              Alert.alert('Deleted', 'Alert removed.');
+            } catch (err) {
+              Alert.alert('Error', err.message || 'Could not delete alert.');
+            }
           },
         },
       ]
@@ -78,8 +97,7 @@ export default function MyAlertsScreen() {
   };
 
   const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString();
+    return new Date(timestamp).toLocaleString();
   };
 
   return (
@@ -95,8 +113,11 @@ export default function MyAlertsScreen() {
             ]}
           >
             <Text style={styles.categoryBadge}>
-              {getCategoryIcon(item.category)} {item.category?.toUpperCase() || 'OTHER'}
+              {getCategoryName(item.category).toUpperCase()}
             </Text>
+            {item.photo_url && (
+              <Image source={{ uri: item.photo_url }} style={styles.alertImage} />
+            )}
             <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
             <Text style={styles.alertMeta}>Sent: {formatTime(item.created_at)}</Text>
             {item.edit_count > 0 && (
@@ -143,11 +164,7 @@ export default function MyAlertsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
   alertItem: {
     padding: 12,
     backgroundColor: '#fff',
@@ -155,44 +172,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  categoryBadge: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 6,
-  },
-  alertText: {
-    fontSize: 16,
-    marginBottom: 6,
-    color: '#333',
-  },
-  alertMeta: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 4,
-  },
-  editMeta: {
-    fontSize: 11,
-    color: '#aaa',
-    marginBottom: 8,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  empty: {
-    textAlign: 'center',
-    marginTop: 40,
-    color: '#999',
-    fontSize: 16,
-  },
+  categoryBadge: { fontSize: 12, fontWeight: 'bold', color: '#666', marginBottom: 6 },
+  alertImage: { width: '100%', height: 150, borderRadius: 8, marginBottom: 8 },
+  alertText: { fontSize: 16, marginBottom: 6 },
+  alertMeta: { fontSize: 12, color: '#999', marginBottom: 4 },
+  editMeta: { fontSize: 11, color: '#aaa', marginBottom: 8 },
+  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  empty: { textAlign: 'center', marginTop: 40, color: '#999', fontSize: 16 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -206,12 +193,7 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 350,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
   modalInput: {
     borderWidth: 1,
     borderColor: '#ccc',
@@ -222,8 +204,5 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
 });

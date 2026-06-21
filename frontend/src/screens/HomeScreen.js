@@ -24,18 +24,13 @@ const TEST_ALERTS_KEY = '@zenca_test_alerts';
 const PAGE_SIZE = 20;
 
 export default function HomeScreen() {
-  
   const [allAlerts, setAllAlerts] = useState([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  
   const [testAlerts, setTestAlerts] = useState([]);
-
-  
   const [dangerText, setDangerText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('other');
   const [photoUri, setPhotoUri] = useState(null);
@@ -43,7 +38,6 @@ export default function HomeScreen() {
   const [isTestMode, setIsTestMode] = useState(false);
   const [reportingId, setReportingId] = useState(null);
 
-  
   const loadTestAlerts = async () => {
     try {
       const stored = await AsyncStorage.getItem(TEST_ALERTS_KEY);
@@ -69,7 +63,6 @@ export default function HomeScreen() {
     }
   };
 
-  
   const loadRealAlerts = async (reset = true, pageNum = 0) => {
     try {
       if (reset) {
@@ -96,7 +89,6 @@ export default function HomeScreen() {
     }
   };
 
-  
   useEffect(() => {
     loadRealAlerts(true, 0);
     loadTestAlerts();
@@ -107,7 +99,6 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, []);
 
- 
   const loadMore = () => {
     if (!hasMore || loadingMore || loading) return;
     const nextPage = page + 1;
@@ -115,7 +106,6 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
-  
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -147,7 +137,6 @@ export default function HomeScreen() {
     }
   };
 
-  
   const handleSendRealAlert = async () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -167,7 +156,6 @@ export default function HomeScreen() {
     }
   };
 
-  
   const handleSendTestAlert = () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -209,7 +197,6 @@ export default function HomeScreen() {
     }
   };
 
-  
   const handleReport = async (alertId) => {
     setReportingId(alertId);
     try {
@@ -240,33 +227,18 @@ export default function HomeScreen() {
     }
   };
 
-  
   const handleShareAlert = async (alert) => {
     try {
-      const categoryIcon = {
-        kidnapping: '🚨',
-        banditry: '⚔️',
-        terrorism: '💣',
-        accident: '🚑',
-        other: '⚠️',
-      }[alert.category] || '⚠️';
-
-      const message = `${categoryIcon} ZENCA ALERT\n` +
-        `Type: ${alert.category?.toUpperCase()}\n` +
-        `Description: ${alert.text || 'No details'}\n` +
-        `Distance: ${Math.round(alert.distance)}m away\n` +
-        `Time: ${new Date(alert.created_at).toLocaleString()}\n\n` +
-        `Stay safe. Verify before acting. Download Zenca: https://zenca.com/download`;
-
+      const categoryName = alert.category ? alert.category.toUpperCase() : 'ALERT';
+      const message = `ZENCA ALERT\nType: ${categoryName}\nDescription: ${alert.text || 'No details'}\nDistance: ${Math.round(alert.distance)}m away\nTime: ${new Date(alert.created_at).toLocaleString()}\n\nStay safe. Verify before acting. Download Zenca: https://zenca.com/download`;
       await Share.share({
         message: message,
-        title: `Zenca Alert - ${alert.category?.toUpperCase()}`,
+        title: `Zenca Alert - ${categoryName}`,
       });
     } catch (err) {
       Alert.alert('Error', 'Could not share alert.');
     }
   };
-
 
   const handleViewOnMap = (alert) => {
     if (!alert.latitude || !alert.longitude) {
@@ -279,41 +251,25 @@ export default function HomeScreen() {
     });
   };
 
-  
   const handleSOSWhatsApp = async () => {
     try {
-     
       let location = await getCurrentPosition(2);
       const lat = location.lat;
       const lng = location.lng;
       const mapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      const categoryName = selectedCategory ? selectedCategory.toUpperCase() : 'OTHER';
 
-      
-      const categoryIcon = {
-        kidnapping: '🚨',
-        banditry: '⚔️',
-        terrorism: '💣',
-        accident: '🚑',
-        other: '⚠️',
-      }[selectedCategory] || '⚠️';
+      const message = `ZENCA SOS ALERT\n\nType: ${categoryName}\nDescription: ${dangerText || 'No details provided'}\nLocation: ${mapsLink}\n\nPlease stay safe and verify this information.`;
 
-      const message = `${categoryIcon} *ZENCA SOS ALERT*\n\n` +
-        `Type: ${selectedCategory.toUpperCase()}\n` +
-        `Description: ${dangerText || 'No details provided'}\n` +
-        `Location: ${mapsLink}\n\n` +
-        `Please stay safe and verify this information.`;
-
-      
       await Share.share({
         message: message,
-        title: `Zenca SOS - ${selectedCategory.toUpperCase()}`,
+        title: `Zenca SOS - ${categoryName}`,
       });
     } catch (err) {
       Alert.alert('Error', 'Could not send SOS. Please enable location and try again.');
     }
   };
 
-  
   const clearTestAlerts = async () => {
     Alert.alert(
       'Clear Test Alerts',
@@ -332,7 +288,6 @@ export default function HomeScreen() {
     );
   };
 
- 
   const getCategoryColor = (category) => {
     const colors = {
       kidnapping: '#d32f2f',
@@ -344,24 +299,22 @@ export default function HomeScreen() {
     return colors[category] || '#757575';
   };
 
-  const getCategoryIcon = (category) => {
-    const icons = {
-      kidnapping: '🚨',
-      banditry: '⚔️',
-      terrorism: '💣',
-      accident: '🚑',
-      other: '⚠️',
+  const getCategoryName = (category) => {
+    const names = {
+      kidnapping: 'Kidnapping',
+      banditry: 'Banditry',
+      terrorism: 'Terrorism',
+      accident: 'Accident',
+      other: 'Other',
     };
-    return icons[category] || '⚠️';
+    return names[category] || 'Other';
   };
 
-  
   const combinedAlerts = [...testAlerts, ...allAlerts];
   const isEmpty = combinedAlerts.length === 0 && !loading;
 
   return (
     <View style={styles.container}>
-      {/* Send alert form */}
       <View style={styles.sendContainer}>
         <CategorySelector selected={selectedCategory} onSelect={setSelectedCategory} />
         <TextInput
@@ -388,6 +341,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {/* Two‑row button layout: DANGER & Test Alert on first row, SOS centered below */}
         <View style={styles.buttonRow}>
           <Button
             title="DANGER"
@@ -401,17 +355,19 @@ export default function HomeScreen() {
             disabled={loading}
             color="#757575"
           />
-          <Button
-            title="SOS WhatsApp"
+        </View>
+        <View style={styles.sosRow}>
+          <TouchableOpacity
+            style={styles.sosButton}
             onPress={handleSOSWhatsApp}
             disabled={loading}
-            color="#25D366"
-          />
+          >
+            <Text style={styles.sosButtonText}>SOS WhatsApp</Text>
+          </TouchableOpacity>
         </View>
         {loading && <ActivityIndicator size="small" style={{ marginTop: 10 }} />}
       </View>
 
-      {/* List header */}
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>Nearby Alerts (last hour)</Text>
         {testAlerts.length > 0 && (
@@ -421,7 +377,6 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Alerts list with pagination */}
       <FlatList
         data={combinedAlerts}
         keyExtractor={(item) => item.id}
@@ -435,12 +390,17 @@ export default function HomeScreen() {
           >
             <View style={styles.alertHeader}>
               <Text style={styles.categoryBadge}>
-                {getCategoryIcon(item.category)} {item.category?.toUpperCase()}
+                {getCategoryName(item.category).toUpperCase()}
               </Text>
               {item.isTest && <Text style={styles.testBadge}>TEST</Text>}
             </View>
             {item.photo_url && (
-              <Image source={{ uri: item.photo_url }} style={styles.alertImage} />
+              <Image
+                source={{ uri: item.photo_url }}
+                style={styles.alertImage}
+                resizeMode="cover"
+                onError={() => console.warn('Image load failed for alert:', item.id)}
+              />
             )}
             <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
             <Text style={styles.alertMeta}>
@@ -467,7 +427,7 @@ export default function HomeScreen() {
                   onPress={() => handleViewOnMap(item)}
                   style={[styles.actionButton, styles.mapButton]}
                 >
-                  <Text style={styles.actionButtonText}>View on Map</Text>
+                  <Text style={styles.mapButtonText}>View on Map</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -498,12 +458,11 @@ export default function HomeScreen() {
         }
       />
 
-      {/* Confirmation Modal */}
       <Modal visible={showConfirmModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              {isTestMode ? '🔍 Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
+              {isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
             </Text>
             <Text style={styles.modalText}>
               {isTestMode
@@ -575,7 +534,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
-    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  sosRow: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  sosButton: {
+    backgroundColor: '#25D366',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '100%',
+  },
+  sosButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   listHeader: {
     flexDirection: 'row',
@@ -642,6 +618,14 @@ const styles = StyleSheet.create({
   },
   mapButton: {
     backgroundColor: '#1976d2',
+    borderRadius: 16,
+  },
+  mapButtonText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   empty: { textAlign: 'center', marginTop: 40, color: '#999' },
   endMessage: { textAlign: 'center', padding: 16, color: '#999', fontSize: 12 },

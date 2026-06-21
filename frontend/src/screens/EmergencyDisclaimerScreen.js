@@ -37,7 +37,7 @@ export default function EmergencyDisclaimerScreen({ onAgree }) {
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <Text style={styles.title}>Emergency Disclaimer</Text>
             <Text style={styles.text}>
-              Zenca is a community alert tool, **not a replacement for official emergency services**.
+              Zenca is a community alert tool, not a replacement for official emergency services.
             </Text>
             <Text style={styles.text}>
               Always verify alerts before acting. False alarms can be deleted by the sender within 1 hour.

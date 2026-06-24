@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 
 let locationSubscription = null;
 let lastKnownPosition = null;
+let lastPositionTime = 0;
 
 export const requestLocationPermission = async () => {
   try {
@@ -17,14 +18,20 @@ export const requestLocationPermission = async () => {
   }
 };
 
-export const getCurrentPosition = async (retries = 2) => {
+export const getCurrentPosition = async (retries = 2, useCache = true) => {
+  const now = Date.now();
+  // Return cached position if less than 30 seconds old
+  if (useCache && lastKnownPosition && (now - lastPositionTime) < 30000) {
+    return lastKnownPosition;
+  }
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced, // faster than High
       });
       const loc = { lat: location.coords.latitude, lng: location.coords.longitude };
       lastKnownPosition = loc;
+      lastPositionTime = now;
       return loc;
     } catch (err) {
       console.warn(`Location attempt ${attempt} failed:`, err);
@@ -65,7 +72,7 @@ export const initLocationTracking = async () => {
       await locationSubscription.remove();
     }
     locationSubscription = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, timeInterval: 300000, distanceInterval: 100 },
+      { accuracy: Location.Accuracy.Balanced, timeInterval: 300000, distanceInterval: 100 },
       () => updateDeviceLocation()
     );
   } catch (err) {

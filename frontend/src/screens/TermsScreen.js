@@ -1,11 +1,48 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function TermsScreen() {
+  const { theme } = useTheme();
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: theme.background,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      textAlign: 'center',
+      color: theme.primary,
+    },
+    lastUpdated: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      marginBottom: 24,
+    },
+    section: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginTop: 20,
+      marginBottom: 8,
+      color: theme.primary,
+    },
+    text: {
+      fontSize: 14,
+      lineHeight: 22,
+      color: theme.text,
+      marginBottom: 12,
+    },
+  });
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Terms & Conditions</Text>
-      <Text style={styles.lastUpdated}>Last updated: June 12, 2026</Text>
+      <Text style={styles.lastUpdated}>Last updated: June 24, 2026</Text>
 
       <Text style={styles.section}>1. Acceptance of Terms</Text>
       <Text style={styles.text}>
@@ -64,37 +101,3 @@ export default function TermsScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-    color: '#d32f2f',
-  },
-  lastUpdated: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  section: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 8,
-    color: '#d32f2f',
-  },
-  text: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#333',
-    marginBottom: 12,
-  },
-});

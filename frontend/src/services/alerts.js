@@ -1,6 +1,7 @@
 import { supabase, getDeviceUUID } from './supabase';
 import { getCurrentPosition } from './location';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
 
 // --- Private notification (amnesty) ---
 async function sendPrivateNotification(device_uuid, title, body) {
@@ -30,7 +31,6 @@ async function broadcastAlert(alertId, type) {
       .eq('id', alertId)
       .single();
     if (error || !alert) return;
-    // Don't await – fire and forget
     fetch(`${Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl}/broadcast-alert`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -41,21 +41,32 @@ async function broadcastAlert(alertId, type) {
   }
 }
 
-// --- Upload photo ---
+// --- Upload photo using base64 (reliable cross-platform) ---
 export const uploadAlertPhoto = async (uri, device_uuid) => {
   try {
-    const fileExt = uri.split('.').pop();
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const fileExt = uri.split('.').pop() || 'jpg';
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${device_uuid}/${fileName}`;
-    const formData = new FormData();
-    formData.append('file', {
-      uri,
-      name: fileName,
-      type: `image/${fileExt}`,
-    });
+
+    // Convert base64 to Blob
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: `image/${fileExt}` });
+
     const { data, error } = await supabase.storage
       .from('alert-photos')
-      .upload(filePath, formData, { cacheControl: '3600', upsert: false });
+      .upload(filePath, blob, {
+        contentType: `image/${fileExt}`,
+        cacheControl: '3600',
+        upsert: false,
+      });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from('alert-photos').getPublicUrl(filePath);
     return publicUrl;
@@ -88,7 +99,7 @@ export const sendAlert = async (text, category = 'other', photoUri = null) => {
     .single();
 
   if (error) throw error;
-  broadcastAlert(data.id, 'new'); // fire-and-forget
+  broadcastAlert(data.id, 'new');
   return data.id;
 };
 

@@ -19,11 +19,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchNearbyAlerts, sendAlert, reportAlert, hasUserReportedAlert } from '../services/alerts';
 import { getCurrentPosition } from '../services/location';
 import CategorySelector from '../components/CategorySelector';
+import { useTheme } from '../contexts/ThemeContext';
 
 const TEST_ALERTS_KEY = '@zenca_test_alerts';
 const PAGE_SIZE = 20;
 
 export default function HomeScreen() {
+  const { theme } = useTheme();
   const [allAlerts, setAllAlerts] = useState([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -95,7 +97,7 @@ export default function HomeScreen() {
     const interval = setInterval(() => {
       loadRealAlerts(true, 0);
       loadTestAlerts();
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -313,6 +315,175 @@ export default function HomeScreen() {
   const combinedAlerts = [...testAlerts, ...allAlerts];
   const isEmpty = combinedAlerts.length === 0 && !loading;
 
+  const styles = StyleSheet.create({
+    container: { flex: 1, padding: 16, backgroundColor: theme.background },
+    sendContainer: {
+      marginBottom: 24,
+      padding: 12,
+      backgroundColor: theme.card,
+      borderRadius: 12,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.inputBorder,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      fontSize: 16,
+      color: theme.text,
+      backgroundColor: theme.inputBackground,
+    },
+    photoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    photoButton: {
+      backgroundColor: theme.inputBackground,
+      padding: 10,
+      borderRadius: 8,
+      flex: 0.48,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    photoButtonText: { fontSize: 14, color: theme.text },
+    previewContainer: {
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    previewImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 8,
+    },
+    removePhoto: { marginTop: 4 },
+    removePhotoText: { color: theme.primary, fontSize: 12 },
+    buttonRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 10,
+      marginBottom: 10,
+    },
+    sosRow: {
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    sosButton: {
+      backgroundColor: '#25D366',
+      paddingVertical: 10,
+      paddingHorizontal: 30,
+      borderRadius: 8,
+      alignItems: 'center',
+      width: '100%',
+    },
+    sosButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: 16,
+    },
+    listHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.text },
+    clearTestText: { fontSize: 12, color: theme.textSecondary },
+    alertItem: {
+      padding: 12,
+      backgroundColor: theme.card,
+      marginBottom: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    testAlertItem: {
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      opacity: 0.7,
+    },
+    alertHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    categoryBadge: { fontSize: 12, fontWeight: 'bold', color: theme.textSecondary },
+    testBadge: {
+      fontSize: 10,
+      fontWeight: 'bold',
+      color: '#fff',
+      backgroundColor: '#757575',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      overflow: 'hidden',
+    },
+    alertImage: {
+      width: '100%',
+      height: 150,
+      borderRadius: 8,
+      marginBottom: 8,
+    },
+    alertText: { fontSize: 16, marginBottom: 4, color: theme.text },
+    alertMeta: { fontSize: 12, color: theme.textSecondary },
+    actionRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 8,
+      marginTop: 8,
+      flexWrap: 'wrap',
+    },
+    actionButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: theme.inputBackground,
+      borderRadius: 16,
+    },
+    actionButtonText: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    mapButton: {
+      backgroundColor: '#1976d2',
+      borderRadius: 16,
+    },
+    mapButtonText: {
+      fontSize: 12,
+      color: '#fff',
+      fontWeight: '600',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    empty: { textAlign: 'center', marginTop: 40, color: theme.textSecondary },
+    endMessage: { textAlign: 'center', padding: 16, color: theme.textSecondary, fontSize: 12 },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.modalOverlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      backgroundColor: theme.card,
+      borderRadius: 16,
+      padding: 24,
+      width: '80%',
+      maxWidth: 320,
+      alignItems: 'center',
+    },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', color: theme.primary, marginBottom: 16, textAlign: 'center' },
+    modalText: { fontSize: 16, textAlign: 'center', marginBottom: 24, lineHeight: 22, color: theme.text },
+    modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
+    modalButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 8 },
+    cancelButton: { backgroundColor: theme.inputBackground, borderWidth: 1, borderColor: theme.border },
+    confirmButton: { backgroundColor: '#d32f2f' },
+    testConfirmButton: { backgroundColor: '#757575' },
+    cancelButtonText: { color: theme.text, fontWeight: '600' },
+    confirmButtonText: { color: '#fff', fontWeight: 'bold' },
+  });
+
   return (
     <View style={styles.container}>
       <View style={styles.sendContainer}>
@@ -320,6 +491,7 @@ export default function HomeScreen() {
         <TextInput
           style={styles.input}
           placeholder="Describe the threat (optional, max 140 chars)"
+          placeholderTextColor={theme.textSecondary}
           maxLength={140}
           value={dangerText}
           onChangeText={setDangerText}
@@ -341,7 +513,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
-        {/* Two‑row button layout: DANGER & Test Alert on first row, SOS centered below */}
         <View style={styles.buttonRow}>
           <Button
             title="DANGER"
@@ -357,15 +528,11 @@ export default function HomeScreen() {
           />
         </View>
         <View style={styles.sosRow}>
-          <TouchableOpacity
-            style={styles.sosButton}
-            onPress={handleSOSWhatsApp}
-            disabled={loading}
-          >
+          <TouchableOpacity style={styles.sosButton} onPress={handleSOSWhatsApp} disabled={loading}>
             <Text style={styles.sosButtonText}>SOS WhatsApp</Text>
           </TouchableOpacity>
         </View>
-        {loading && <ActivityIndicator size="small" style={{ marginTop: 10 }} />}
+        {loading && <ActivityIndicator size="small" style={{ marginTop: 10 }} color={theme.primary} />}
       </View>
 
       <View style={styles.listHeader}>
@@ -381,52 +548,25 @@ export default function HomeScreen() {
         data={combinedAlerts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View
-            style={[
-              styles.alertItem,
-              item.isTest && styles.testAlertItem,
-              { borderLeftWidth: 4, borderLeftColor: getCategoryColor(item.category) },
-            ]}
-          >
+          <View style={[styles.alertItem, item.isTest && styles.testAlertItem, { borderLeftWidth: 4, borderLeftColor: getCategoryColor(item.category) }]}>
             <View style={styles.alertHeader}>
-              <Text style={styles.categoryBadge}>
-                {getCategoryName(item.category).toUpperCase()}
-              </Text>
+              <Text style={styles.categoryBadge}>{getCategoryName(item.category).toUpperCase()}</Text>
               {item.isTest && <Text style={styles.testBadge}>TEST</Text>}
             </View>
             {item.photo_url && (
-              <Image
-                source={{ uri: item.photo_url }}
-                style={styles.alertImage}
-                resizeMode="cover"
-                onError={() => console.warn('Image load failed for alert:', item.id)}
-              />
+              <Image source={{ uri: item.photo_url }} style={styles.alertImage} resizeMode="cover" onError={() => console.warn('Image load failed')} />
             )}
             <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
-            <Text style={styles.alertMeta}>
-              {new Date(item.created_at).toLocaleTimeString()} • {Math.round(item.distance)}m away
-            </Text>
+            <Text style={styles.alertMeta}>{new Date(item.created_at).toLocaleTimeString()} • {Math.round(item.distance)}m away</Text>
             {!item.isTest && (
               <View style={styles.actionRow}>
-                <TouchableOpacity
-                  onPress={() => handleReport(item.id)}
-                  style={styles.actionButton}
-                  disabled={reportingId === item.id}
-                >
-                  <Text style={styles.actionButtonText}>
-                    {reportingId === item.id ? '...' : 'Report'}
-                  </Text>
+                <TouchableOpacity onPress={() => handleReport(item.id)} style={styles.actionButton} disabled={reportingId === item.id}>
+                  <Text style={styles.actionButtonText}>{reportingId === item.id ? '...' : 'Report'}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleShareAlert(item)}
-                  style={styles.actionButton}
-                >
+                <TouchableOpacity onPress={() => handleShareAlert(item)} style={styles.actionButton}>
                   <Text style={styles.actionButtonText}>Share</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleViewOnMap(item)}
-                  style={[styles.actionButton, styles.mapButton]}
-                >
+                <TouchableOpacity onPress={() => handleViewOnMap(item)} style={[styles.actionButton, styles.mapButton]}>
                   <Text style={styles.mapButtonText}>View on Map</Text>
                 </TouchableOpacity>
               </View>
@@ -442,44 +582,30 @@ export default function HomeScreen() {
           await loadTestAlerts();
           setRefreshing(false);
         }}
-        ListFooterComponent={() => (
+        ListFooterComponent={() =>
           loadingMore ? (
-            <ActivityIndicator size="small" style={{ margin: 20 }} />
+            <ActivityIndicator size="small" style={{ margin: 20 }} color={theme.primary} />
           ) : (
-            !hasMore && combinedAlerts.length > 0 && (
-              <Text style={styles.endMessage}>No more alerts</Text>
-            )
+            !hasMore && combinedAlerts.length > 0 && <Text style={styles.endMessage}>No more alerts</Text>
           )
-        )}
-        ListEmptyComponent={
-          isEmpty && !loadingMore ? (
-            <Text style={styles.empty}>No active alerts within 5km.</Text>
-          ) : null
         }
+        ListEmptyComponent={isEmpty && !loadingMore ? <Text style={styles.empty}>No active alerts within 5km.</Text> : null}
       />
 
       <Modal visible={showConfirmModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>
-              {isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
-            </Text>
+            <Text style={styles.modalTitle}>{isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}</Text>
             <Text style={styles.modalText}>
               {isTestMode
                 ? 'This test alert will be visible only to you. No one else will be notified.'
                 : 'Are you absolutely sure? This will notify everyone within 5 km.'}
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowConfirmModal(false)}
-              >
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowConfirmModal(false)}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, isTestMode ? styles.testConfirmButton : styles.confirmButton]}
-                onPress={handleConfirmSend}
-              >
+              <TouchableOpacity style={[styles.modalButton, isTestMode ? styles.testConfirmButton : styles.confirmButton]} onPress={handleConfirmSend}>
                 <Text style={styles.confirmButtonText}>Yes, Send</Text>
               </TouchableOpacity>
             </View>
@@ -489,167 +615,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  sendContainer: {
-    marginBottom: 24,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    fontSize: 16,
-  },
-  photoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  photoButton: {
-    backgroundColor: '#e0e0e0',
-    padding: 10,
-    borderRadius: 8,
-    flex: 0.48,
-    alignItems: 'center',
-  },
-  photoButtonText: { fontSize: 14 },
-  previewContainer: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  previewImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-  },
-  removePhoto: { marginTop: 4 },
-  removePhotoText: { color: '#d32f2f', fontSize: 12 },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 10,
-  },
-  sosRow: {
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  sosButton: {
-    backgroundColor: '#25D366',
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    width: '100%',
-  },
-  sosButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold' },
-  clearTestText: { fontSize: 12, color: '#757575' },
-  alertItem: {
-    padding: 12,
-    backgroundColor: '#fff',
-    marginBottom: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  testAlertItem: {
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  alertHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  categoryBadge: { fontSize: 12, fontWeight: 'bold', color: '#666' },
-  testBadge: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#fff',
-    backgroundColor: '#757575',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  alertImage: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  alertText: { fontSize: 16, marginBottom: 4 },
-  alertMeta: { fontSize: 12, color: '#666' },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  actionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 16,
-  },
-  actionButtonText: {
-    fontSize: 12,
-    color: '#757575',
-  },
-  mapButton: {
-    backgroundColor: '#1976d2',
-    borderRadius: 16,
-  },
-  mapButtonText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '600',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  empty: { textAlign: 'center', marginTop: 40, color: '#999' },
-  endMessage: { textAlign: 'center', padding: 16, color: '#999', fontSize: 12 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '80%',
-    maxWidth: 320,
-    alignItems: 'center',
-  },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#d32f2f', marginBottom: 16, textAlign: 'center' },
-  modalText: { fontSize: 16, textAlign: 'center', marginBottom: 24, lineHeight: 22 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-  modalButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginHorizontal: 8 },
-  cancelButton: { backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#ccc' },
-  confirmButton: { backgroundColor: '#d32f2f' },
-  testConfirmButton: { backgroundColor: '#757575' },
-  cancelButtonText: { color: '#333', fontWeight: '600' },
-  confirmButtonText: { color: '#fff', fontWeight: 'bold' },
-});

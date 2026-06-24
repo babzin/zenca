@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, View, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 // Services
 import { initSupabase } from './src/services/supabase';
@@ -22,7 +23,7 @@ import TermsScreen from './src/screens/TermsScreen';
 import EmergencyDisclaimerScreen from './src/screens/EmergencyDisclaimerScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 
-
+// Utils
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
 
 const Tab = createBottomTabNavigator();
@@ -58,12 +59,24 @@ Notifications.setNotificationHandler({
 });
 
 function MainTabs() {
+  const { theme } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: true,
-        tabBarActiveTintColor: '#d32f2f',
-        tabBarInactiveTintColor: '#757575',
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.tabBarInactive,
+        tabBarStyle: {
+          backgroundColor: theme.background,
+          borderTopColor: theme.border,
+        },
+        headerStyle: {
+          backgroundColor: theme.headerBackground,
+        },
+        headerTitleStyle: {
+          color: theme.headerText,
+        },
+        headerTintColor: theme.primary,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
           let IconComponent = Ionicons;
@@ -94,6 +107,39 @@ function MainTabs() {
       <Tab.Screen name="Emergency Contacts" component={ContactsScreen} />
       <Tab.Screen name="Help" component={FeedbackScreen} />
     </Tab.Navigator>
+  );
+}
+
+function AppNavigator() {
+  const { theme } = useTheme();
+  return (
+    <NavigationContainer
+      theme={{
+        colors: {
+          background: theme.background,
+          card: theme.card,
+          text: theme.text,
+          border: theme.border,
+          primary: theme.primary,
+        },
+      }}
+    >
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: theme.headerBackground,
+          },
+          headerTitleStyle: {
+            color: theme.headerText,
+          },
+          headerTintColor: theme.primary,
+        }}
+      >
+        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+        <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 
@@ -175,12 +221,8 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator>
-        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
-        <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <ThemeProvider>
+      <AppNavigator />
+    </ThemeProvider>
   );
 }

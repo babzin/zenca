@@ -8,11 +8,15 @@ import {
   Alert,
   ScrollView,
   TouchableOpacity,
+  Switch,
 } from 'react-native';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function FeedbackScreen() {
+  const { theme, isDark, themeMode, toggleTheme } = useTheme();
+
   const handleEmail = (subject, body = '') => {
-    const emailUrl = `mailto:zenca963@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const emailUrl = `mailto:support@zenca.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     Linking.openURL(emailUrl).catch(() => {
       Alert.alert(
         'No Email App',
@@ -30,6 +34,88 @@ export default function FeedbackScreen() {
       );
     });
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: theme.background,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      textAlign: 'center',
+      color: theme.primary,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      marginBottom: 30,
+    },
+    card: {
+      backgroundColor: theme.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    cardTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      color: theme.text,
+    },
+    cardText: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: 12,
+      lineHeight: 20,
+    },
+    button: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+    },
+    buttonReport: {
+      backgroundColor: '#d32f2f',
+    },
+    buttonSuggest: {
+      backgroundColor: '#4caf50',
+    },
+    buttonDemo: {
+      backgroundColor: '#ff9800',
+    },
+    buttonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
+    note: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      marginTop: 20,
+      marginBottom: 30,
+    },
+    darkModeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    darkModeLabel: {
+      fontSize: 16,
+      color: theme.text,
+      fontWeight: '500',
+    },
+  });
 
   return (
     <ScrollView style={styles.container}>
@@ -75,78 +161,33 @@ export default function FeedbackScreen() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Dark Mode</Text>
+        <Text style={styles.cardText}>
+          Choose your preferred appearance.
+        </Text>
+        <View style={styles.darkModeRow}>
+          <Text style={styles.darkModeLabel}>Dark Mode</Text>
+          <Switch
+            value={isDark}
+            onValueChange={() => toggleTheme(isDark ? 'light' : 'dark')}
+            trackColor={{ false: '#ccc', true: '#d32f2f' }}
+            thumbColor={isDark ? '#fff' : '#fff'}
+          />
+        </View>
+        <TouchableOpacity
+          style={{ marginTop: 8 }}
+          onPress={() => toggleTheme('system')}
+        >
+          <Text style={{ color: theme.primary, fontWeight: 'bold' }}>
+            {themeMode === 'system' ? 'Use System Theme' : 'Use System Theme'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.note}>
         You can also email us directly at: zenca963@gmail.com
       </Text>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-    color: '#d32f2f',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  card: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
-  },
-  cardText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  buttonReport: {
-    backgroundColor: '#d32f2f',
-  },
-  buttonSuggest: {
-    backgroundColor: '#4caf50',
-  },
-  buttonDemo: {
-    backgroundColor: '#ff9800',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  note: {
-    fontSize: 12,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 30,
-  },
-});

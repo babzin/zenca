@@ -180,3 +180,88 @@ export const deleteAlert = async (id) => {
     throw new Error(err.message || 'Could not delete alert.');
   }
 };
+
+// --- Report alert ---
+export const reportAlert = async (alertId) => {
+  try {
+    const device_uuid = await getDeviceUUID();
+    
+    // Check if already reported
+    const { data: existing, error: checkError } = await supabase
+      .from('alert_reports')
+      .select('id')
+      .eq('alert_id', alertId)
+      .eq('reporter_device_uuid', device_uuid)
+      .maybeSingle();
+    
+    if (checkError) throw checkError;
+    if (existing) {
+      throw new Error('You have already reported this alert.');
+    }
+
+    // Insert report
+    const { error: insertError } = await supabase
+      .from('alert_reports')
+      .insert({
+        alert_id: alertId,
+        reporter_device_uuid: device_uuid,
+      });
+    
+    if (insertError) throw insertError;
+
+    // Count reports for this alert
+    const { count, error: countError } = await supabase
+      .from('alert_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('alert_id', alertId);
+    
+    if (countError) throw countError;
+
+    const THRESHOLD = 3;
+    if (count >= THRESHOLD) {
+      // Get alert owner's device_uuid
+      const { data: alert, error: alertError } = await supabase
+        .from('alerts')
+        .select('device_uuid')
+        .eq('id', alertId)
+        .single();
+      
+      if (!alertError && alert) {
+        // Send nudge to alert owner
+        await fetch(`${Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl}/send-report-nudge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alert_id: alertId,
+            sender_device_uuid: alert.device_uuid,
+            report_count: count,
+            threshold: THRESHOLD,
+          }),
+        }).catch(err => console.warn('Nudge failed', err));
+      }
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Report error:', err);
+    throw new Error(err.message || 'Could not report alert.');
+  }
+};
+
+// --- Check if user already reported ---
+export const hasUserReportedAlert = async (alertId) => {
+  try {
+    const device_uuid = await getDeviceUUID();
+    const { data, error } = await supabase
+      .from('alert_reports')
+      .select('id')
+      .eq('alert_id', alertId)
+      .eq('reporter_device_uuid', device_uuid)
+      .maybeSingle();
+    if (error) throw error;
+    return !!data;
+  } catch (err) {
+    console.warn('Check report error:', err);
+    return false;
+  }
+};

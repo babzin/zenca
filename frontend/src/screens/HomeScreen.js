@@ -216,8 +216,12 @@ export default function HomeScreen() {
             text: 'Report',
             style: 'destructive',
             onPress: async () => {
-              await reportAlert(alertId);
-              Alert.alert('Reported', 'Thank you. The sender will be notified if multiple reports are received.');
+              try {
+                await reportAlert(alertId);
+                Alert.alert('Reported', 'Thank you. The sender will be notified if multiple reports are received.');
+              } catch (err) {
+                Alert.alert('Error', err.message || 'Could not report alert.');
+              }
             },
           },
         ]
@@ -557,7 +561,10 @@ export default function HomeScreen() {
               <Image source={{ uri: item.photo_url }} style={styles.alertImage} resizeMode="cover" onError={() => console.warn('Image load failed')} />
             )}
             <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
-            <Text style={styles.alertMeta}>{new Date(item.created_at).toLocaleTimeString()} • {Math.round(item.distance)}m away</Text>
+            <Text style={styles.alertMeta}>
+              {new Date(item.created_at).toLocaleTimeString()} •{' '}
+              {item.distance ? `${Math.round(item.distance)}m away` : 'Unknown distance'}
+            </Text>
             {!item.isTest && (
               <View style={styles.actionRow}>
                 <TouchableOpacity onPress={() => handleReport(item.id)} style={styles.actionButton} disabled={reportingId === item.id}>

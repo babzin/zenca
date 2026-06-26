@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../contexts/ThemeContext';
 import { ContactItem } from '../components/ContactItem';
 import {
   loadContacts,
@@ -22,7 +23,6 @@ import {
 } from '../services/contactsStorage';
 import { getDefaultContactsForState } from '../utils/nigeriaContacts';
 import { getCurrentState } from '../utils/reverseGeocode';
-import { useTheme } from '../contexts/ThemeContext';
 
 export default function ContactsScreen() {
   const { theme } = useTheme();
@@ -83,38 +83,19 @@ export default function ContactsScreen() {
   };
 
   const renderItem = ({ item }) => (
-    <View style={[styles.contactCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      <Text style={[styles.contactName, { color: theme.text }]}>{item.name}</Text>
-      <Text style={[styles.contactNumber, { color: theme.textSecondary }]}>{item.number}</Text>
-      <View style={styles.contactActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.callButton]}
-          onPress={() => Linking.openURL(`tel:${item.number}`)}
-        >
-          <Text style={styles.actionButtonText}>Call</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.editButton]}
-          onPress={() => {
-            setEditingContact(item);
-            setNewName(item.name);
-            setNewNumber(item.number);
-            setModalVisible(true);
-          }}
-        >
-          <Text style={styles.actionButtonText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={async () => {
-            await deleteContact(item.id);
-            load();
-          }}
-        >
-          <Text style={styles.actionButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <ContactItem
+      contact={item}
+      onEdit={(contact) => {
+        setEditingContact(contact);
+        setNewName(contact.name);
+        setNewNumber(contact.number);
+        setModalVisible(true);
+      }}
+      onDelete={async (id) => {
+        await deleteContact(id);
+        load();
+      }}
+    />
   );
 
   const emergencyContacts = contacts.filter(c => c.isDefault === true);
@@ -128,115 +109,24 @@ export default function ContactsScreen() {
     );
   }
 
-  const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, backgroundColor: theme.background },
-    tabContainer: {
-      flexDirection: 'row',
-      marginBottom: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-    },
-    activeTab: {
-      borderBottomWidth: 2,
-      borderBottomColor: theme.primary,
-    },
-    tabText: {
-      fontSize: 14,
-      color: theme.textSecondary,
-    },
-    activeTabText: {
-      color: theme.primary,
-      fontWeight: 'bold',
-    },
-    contactCard: {
-      padding: 12,
-      marginBottom: 8,
-      borderRadius: 8,
-      borderWidth: 1,
-    },
-    contactName: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginBottom: 2,
-    },
-    contactNumber: {
-      fontSize: 14,
-      marginBottom: 8,
-    },
-    contactActions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    actionButton: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
-      marginRight: 6,
-    },
-    callButton: {
-      backgroundColor: '#4caf50',
-    },
-    editButton: {
-      backgroundColor: '#2196f3',
-    },
-    deleteButton: {
-      backgroundColor: '#d32f2f',
-    },
-    actionButtonText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    empty: { textAlign: 'center', marginTop: 40, color: theme.textSecondary },
-    legalContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginTop: 24,
-      marginBottom: 16,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: theme.modalOverlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContent: {
-      backgroundColor: theme.card,
-      borderRadius: 12,
-      padding: 20,
-      width: '80%',
-      maxWidth: 350,
-    },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: theme.text },
-    modalInput: {
-      borderWidth: 1,
-      borderColor: theme.inputBorder,
-      borderRadius: 8,
-      padding: 10,
-      marginBottom: 12,
-      color: theme.text,
-      backgroundColor: theme.inputBackground,
-    },
-    modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  });
-
   return (
-    <View style={styles.container}>
-      <View style={styles.tabContainer}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'emergency' && styles.activeTab]} onPress={() => setActiveTab('emergency')}>
-          <Text style={[styles.tabText, activeTab === 'emergency' && styles.activeTabText]}>Emergency Numbers</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.tabContainer, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'emergency' && styles.activeTab]}
+          onPress={() => setActiveTab('emergency')}
+        >
+          <Text style={[styles.tabText, activeTab === 'emergency' && styles.activeTabText]}>
+            Emergency Numbers
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'my' && styles.activeTab]} onPress={() => setActiveTab('my')}>
-          <Text style={[styles.tabText, activeTab === 'my' && styles.activeTabText]}>My Contacts</Text>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'my' && styles.activeTab]}
+          onPress={() => setActiveTab('my')}
+        >
+          <Text style={[styles.tabText, activeTab === 'my' && styles.activeTabText]}>
+            My Contacts
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -247,7 +137,7 @@ export default function ContactsScreen() {
             data={emergencyContacts}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            ListEmptyComponent={<Text style={styles.empty}>No emergency contacts. Tap reset to load defaults.</Text>}
+            ListEmptyComponent={<Text style={[styles.empty, { color: theme.textSecondary }]}>No emergency contacts. Tap reset to load defaults.</Text>}
           />
         </>
       )}
@@ -258,34 +148,52 @@ export default function ContactsScreen() {
             data={myContacts}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            ListEmptyComponent={<Text style={styles.empty}>No personal contacts. Add one below.</Text>}
+            ListEmptyComponent={<Text style={[styles.empty, { color: theme.textSecondary }]}>No personal contacts. Add one below.</Text>}
           />
-          <Button title="+ Add New Contact" onPress={() => { setEditingContact(null); setNewName(''); setNewNumber(''); setModalVisible(true); }} />
+          <Button
+            title="+ Add New Contact"
+            onPress={() => {
+              setEditingContact(null);
+              setNewName('');
+              setNewNumber('');
+              setModalVisible(true);
+            }}
+          />
         </>
       )}
 
-      <View style={styles.legalContainer}>
-        <Button title="Privacy Policy" onPress={() => navigation.navigate('PrivacyPolicy')} color="#666" />
-        <Button title="Terms & Conditions" onPress={() => navigation.navigate('Terms')} color="#666" />
+      <View style={[styles.legalContainer, { borderTopColor: theme.border }]}>
+        <Button
+          title="Privacy Policy"
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+          color="#666"
+        />
+        <Button
+          title="Terms & Conditions"
+          onPress={() => navigation.navigate('Terms')}
+          color="#666"
+        />
       </View>
 
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editingContact ? 'Edit Contact' : 'New Contact'}</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.modalOverlay }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {editingContact ? 'Edit Contact' : 'New Contact'}
+            </Text>
             <TextInput
               placeholder="Name"
               placeholderTextColor={theme.textSecondary}
               value={newName}
               onChangeText={setNewName}
-              style={styles.modalInput}
+              style={[styles.modalInput, { borderColor: theme.inputBorder, color: theme.text, backgroundColor: theme.inputBackground }]}
             />
             <TextInput
               placeholder="Phone number"
               placeholderTextColor={theme.textSecondary}
               value={newNumber}
               onChangeText={setNewNumber}
-              style={styles.modalInput}
+              style={[styles.modalInput, { borderColor: theme.inputBorder, color: theme.text, backgroundColor: theme.inputBackground }]}
               keyboardType="phone-pad"
             />
             <View style={styles.modalButtons}>
@@ -298,3 +206,70 @@ export default function ContactsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#d32f2f',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#757575',
+  },
+  activeTabText: {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 40,
+    fontSize: 14,
+  },
+  legalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 24,
+    marginBottom: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 350,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+});

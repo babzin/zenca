@@ -69,6 +69,7 @@ export const uploadAlertPhoto = async (uri, device_uuid) => {
       });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from('alert-photos').getPublicUrl(filePath);
+    console.log('Uploaded photo URL:', publicUrl); // Debug log
     return publicUrl;
   } catch (err) {
     console.error('Photo upload failed', err);

@@ -26,13 +26,19 @@ const PAGE_SIZE = 20;
 
 export default function HomeScreen() {
   const { theme } = useTheme();
+
+  // Real alerts state (paginated)
   const [allAlerts, setAllAlerts] = useState([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Test alerts state
   const [testAlerts, setTestAlerts] = useState([]);
+
+  // Form state
   const [dangerText, setDangerText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('other');
   const [photoUri, setPhotoUri] = useState(null);
@@ -40,6 +46,7 @@ export default function HomeScreen() {
   const [isTestMode, setIsTestMode] = useState(false);
   const [reportingId, setReportingId] = useState(null);
 
+  // Load test alerts from AsyncStorage
   const loadTestAlerts = async () => {
     try {
       const stored = await AsyncStorage.getItem(TEST_ALERTS_KEY);
@@ -65,6 +72,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Load real alerts (paginated)
   const loadRealAlerts = async (reset = true, pageNum = 0) => {
     try {
       if (reset) {
@@ -91,16 +99,18 @@ export default function HomeScreen() {
     }
   };
 
+  // Initial load and refresh interval
   useEffect(() => {
     loadRealAlerts(true, 0);
     loadTestAlerts();
     const interval = setInterval(() => {
       loadRealAlerts(true, 0);
       loadTestAlerts();
-    }, 60000);
+    }, 60000); // 60 seconds
     return () => clearInterval(interval);
   }, []);
 
+  // Load more when scrolling
   const loadMore = () => {
     if (!hasMore || loadingMore || loading) return;
     const nextPage = page + 1;
@@ -108,6 +118,7 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
+  // Image pickers
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -139,6 +150,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Send real alert
   const handleSendRealAlert = async () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -149,7 +161,8 @@ export default function HomeScreen() {
       await sendAlert(dangerText, selectedCategory, photoUri);
       Alert.alert('Alert Sent', 'Your emergency signal has been broadcast.');
       resetForm();
-      loadRealAlerts(true, 0);
+      // Delay refresh to allow photo URL to be available
+      setTimeout(() => loadRealAlerts(true, 0), 2000);
     } catch (err) {
       Alert.alert('Failed', err.message || 'Could not send alert.');
     } finally {
@@ -158,6 +171,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Send test alert (local only)
   const handleSendTestAlert = () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -199,6 +213,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Report false alert
   const handleReport = async (alertId) => {
     setReportingId(alertId);
     try {
@@ -233,6 +248,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Share alert externally
   const handleShareAlert = async (alert) => {
     try {
       const categoryName = alert.category ? alert.category.toUpperCase() : 'ALERT';
@@ -246,6 +262,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Open external map with alert location
   const handleViewOnMap = (alert) => {
     if (!alert.latitude || !alert.longitude) {
       Alert.alert('Error', 'Location data not available for this alert.');
@@ -257,6 +274,7 @@ export default function HomeScreen() {
     });
   };
 
+  // SOS WhatsApp (text‑only)
   const handleSOSWhatsApp = async () => {
     try {
       let location = await getCurrentPosition(2);
@@ -276,6 +294,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Clear test alerts
   const clearTestAlerts = async () => {
     Alert.alert(
       'Clear Test Alerts',
@@ -294,6 +313,7 @@ export default function HomeScreen() {
     );
   };
 
+  // Helpers for UI
   const getCategoryColor = (category) => {
     const colors = {
       kidnapping: '#d32f2f',
@@ -316,9 +336,11 @@ export default function HomeScreen() {
     return names[category] || 'Other';
   };
 
+  // Merge real + test alerts (test alerts first)
   const combinedAlerts = [...testAlerts, ...allAlerts];
   const isEmpty = combinedAlerts.length === 0 && !loading;
 
+  // Theme‑based styles
   const styles = StyleSheet.create({
     container: { flex: 1, padding: 16, backgroundColor: theme.background },
     sendContainer: {
@@ -552,13 +574,26 @@ export default function HomeScreen() {
         data={combinedAlerts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={[styles.alertItem, item.isTest && styles.testAlertItem, { borderLeftWidth: 4, borderLeftColor: getCategoryColor(item.category) }]}>
+          <View
+            style={[
+              styles.alertItem,
+              item.isTest && styles.testAlertItem,
+              { borderLeftWidth: 4, borderLeftColor: getCategoryColor(item.category) },
+            ]}
+          >
             <View style={styles.alertHeader}>
-              <Text style={styles.categoryBadge}>{getCategoryName(item.category).toUpperCase()}</Text>
+              <Text style={styles.categoryBadge}>
+                {getCategoryName(item.category).toUpperCase()}
+              </Text>
               {item.isTest && <Text style={styles.testBadge}>TEST</Text>}
             </View>
             {item.photo_url && (
-              <Image source={{ uri: item.photo_url }} style={styles.alertImage} resizeMode="cover" onError={() => console.warn('Image load failed')} />
+              <Image
+                source={{ uri: item.photo_url }}
+                style={styles.alertImage}
+                resizeMode="cover"
+                onError={() => console.warn('Image load failed for alert:', item.id)}
+              />
             )}
             <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
             <Text style={styles.alertMeta}>
@@ -567,13 +602,25 @@ export default function HomeScreen() {
             </Text>
             {!item.isTest && (
               <View style={styles.actionRow}>
-                <TouchableOpacity onPress={() => handleReport(item.id)} style={styles.actionButton} disabled={reportingId === item.id}>
-                  <Text style={styles.actionButtonText}>{reportingId === item.id ? '...' : 'Report'}</Text>
+                <TouchableOpacity
+                  onPress={() => handleReport(item.id)}
+                  style={styles.actionButton}
+                  disabled={reportingId === item.id}
+                >
+                  <Text style={styles.actionButtonText}>
+                    {reportingId === item.id ? '...' : 'Report'}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleShareAlert(item)} style={styles.actionButton}>
+                <TouchableOpacity
+                  onPress={() => handleShareAlert(item)}
+                  style={styles.actionButton}
+                >
                   <Text style={styles.actionButtonText}>Share</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleViewOnMap(item)} style={[styles.actionButton, styles.mapButton]}>
+                <TouchableOpacity
+                  onPress={() => handleViewOnMap(item)}
+                  style={[styles.actionButton, styles.mapButton]}
+                >
                   <Text style={styles.mapButtonText}>View on Map</Text>
                 </TouchableOpacity>
               </View>
@@ -593,26 +640,41 @@ export default function HomeScreen() {
           loadingMore ? (
             <ActivityIndicator size="small" style={{ margin: 20 }} color={theme.primary} />
           ) : (
-            !hasMore && combinedAlerts.length > 0 && <Text style={styles.endMessage}>No more alerts</Text>
+            !hasMore && combinedAlerts.length > 0 && (
+              <Text style={styles.endMessage}>No more alerts</Text>
+            )
           )
         }
-        ListEmptyComponent={isEmpty && !loadingMore ? <Text style={styles.empty}>No active alerts within 5km.</Text> : null}
+        ListEmptyComponent={
+          isEmpty && !loadingMore ? (
+            <Text style={styles.empty}>No active alerts within 5km.</Text>
+          ) : null
+        }
       />
 
+      {/* Confirmation Modal */}
       <Modal visible={showConfirmModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>{isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}</Text>
+            <Text style={styles.modalTitle}>
+              {isTestMode ? 'Send Test Alert?' : `Confirm ${selectedCategory.toUpperCase()} Alert`}
+            </Text>
             <Text style={styles.modalText}>
               {isTestMode
                 ? 'This test alert will be visible only to you. No one else will be notified.'
                 : 'Are you absolutely sure? This will notify everyone within 5 km.'}
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowConfirmModal(false)}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowConfirmModal(false)}
+              >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, isTestMode ? styles.testConfirmButton : styles.confirmButton]} onPress={handleConfirmSend}>
+              <TouchableOpacity
+                style={[styles.modalButton, isTestMode ? styles.testConfirmButton : styles.confirmButton]}
+                onPress={handleConfirmSend}
+              >
                 <Text style={styles.confirmButtonText}>Yes, Send</Text>
               </TouchableOpacity>
             </View>

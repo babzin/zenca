@@ -6,6 +6,7 @@ const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 let deviceUUID = null;
+let initPromise = null;
 
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -17,20 +18,24 @@ const generateUUID = () => {
 
 export const getDeviceUUID = async () => {
   if (deviceUUID) return deviceUUID;
-  try {
-    let uuid = await AsyncStorage.getItem('@zenca_device_uuid');
-    if (!uuid) {
-      uuid = generateUUID();
-      await AsyncStorage.setItem('@zenca_device_uuid', uuid);
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    try {
+      let uuid = await AsyncStorage.getItem('@zenca_device_uuid');
+      if (!uuid) {
+        uuid = generateUUID();
+        await AsyncStorage.setItem('@zenca_device_uuid', uuid);
+      }
+      deviceUUID = uuid;
+      return uuid;
+    } catch (error) {
+      console.error('Failed to get/generate device UUID', error);
+      const fallback = generateUUID();
+      deviceUUID = fallback;
+      return fallback;
     }
-    deviceUUID = uuid;
-    return uuid;
-  } catch (error) {
-    console.error('Failed to get/generate device UUID', error);
-    const fallback = generateUUID();
-    deviceUUID = fallback;
-    return fallback;
-  }
+  })();
+  return initPromise;
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

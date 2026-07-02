@@ -41,7 +41,7 @@ export default function HomeScreen() {
   // Form state
   const [dangerText, setDangerText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('other');
-  const [photoUri, setPhotoUri] = useState(null);
+  const [photoBase64, setPhotoBase64] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const [reportingId, setReportingId] = useState(null);
@@ -118,7 +118,7 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
-  // Image pickers
+  // Image pickers with base64
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -129,9 +129,10 @@ export default function HomeScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.7,
+      base64: true,
     });
     if (!result.canceled) {
-      setPhotoUri(result.assets[0].uri);
+      setPhotoBase64(result.assets[0].base64);
     }
   };
 
@@ -144,9 +145,10 @@ export default function HomeScreen() {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       quality: 0.7,
+      base64: true,
     });
     if (!result.canceled) {
-      setPhotoUri(result.assets[0].uri);
+      setPhotoBase64(result.assets[0].base64);
     }
   };
 
@@ -158,7 +160,7 @@ export default function HomeScreen() {
     }
     setLoading(true);
     try {
-      await sendAlert(dangerText, selectedCategory, photoUri);
+      await sendAlert(dangerText, selectedCategory, photoBase64);
       Alert.alert('Alert Sent', 'Your emergency signal has been broadcast.');
       resetForm();
       // Delay refresh to allow photo URL to be available
@@ -181,7 +183,7 @@ export default function HomeScreen() {
       id: `test_${Date.now()}`,
       text: dangerText || '(Test alert – no description)',
       category: selectedCategory,
-      photo_url: photoUri,
+      photo_url: photoBase64 ? `data:image/jpeg;base64,${photoBase64}` : null,
       created_at: new Date().toISOString(),
       distance: 0,
       isTest: true,
@@ -197,7 +199,7 @@ export default function HomeScreen() {
   const resetForm = () => {
     setDangerText('');
     setSelectedCategory('other');
-    setPhotoUri(null);
+    setPhotoBase64(null);
   };
 
   const openConfirmModal = (isTest = false) => {
@@ -531,10 +533,10 @@ export default function HomeScreen() {
             <Text style={styles.photoButtonText}>Gallery</Text>
           </TouchableOpacity>
         </View>
-        {photoUri && (
+        {photoBase64 && (
           <View style={styles.previewContainer}>
-            <Image source={{ uri: photoUri }} style={styles.previewImage} />
-            <TouchableOpacity onPress={() => setPhotoUri(null)} style={styles.removePhoto}>
+            <Image source={{ uri: `data:image/jpeg;base64,${photoBase64}` }} style={styles.previewImage} />
+            <TouchableOpacity onPress={() => setPhotoBase64(null)} style={styles.removePhoto}>
               <Text style={styles.removePhotoText}>Remove</Text>
             </TouchableOpacity>
           </View>

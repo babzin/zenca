@@ -1,7 +1,6 @@
 import { supabase, getDeviceUUID } from './supabase';
 import { getCurrentPosition } from './location';
 import Constants from 'expo-constants';
-import * as FileSystem from 'expo-file-system';
 
 // --- Private notification (amnesty) ---
 async function sendPrivateNotification(device_uuid, title, body) {
@@ -41,15 +40,14 @@ async function broadcastAlert(alertId, type) {
   }
 }
 
-// --- Upload photo using base64 (reliable cross-platform) ---
-export const uploadAlertPhoto = async (uri, device_uuid) => {
+// --- Upload photo from base64 string ---
+export const uploadAlertPhoto = async (base64, device_uuid) => {
   try {
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const fileExt = uri.split('.').pop() || 'jpg';
+    if (!base64) return null;
+    const fileExt = 'jpg';
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${device_uuid}/${fileName}`;
+    const contentType = `image/${fileExt}`;
 
     // Convert base64 to Blob
     const byteCharacters = atob(base64);
@@ -58,33 +56,33 @@ export const uploadAlertPhoto = async (uri, device_uuid) => {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: `image/${fileExt}` });
+    const blob = new Blob([byteArray], { type: contentType });
 
     const { data, error } = await supabase.storage
       .from('alert-photos')
       .upload(filePath, blob, {
-        contentType: `image/${fileExt}`,
+        contentType,
         cacheControl: '3600',
         upsert: false,
       });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from('alert-photos').getPublicUrl(filePath);
-    console.log('Uploaded photo URL:', publicUrl); // Debug log
+    console.log('Uploaded photo URL:', publicUrl);
     return publicUrl;
   } catch (err) {
-    console.error('Photo upload failed', err);
+    console.error('Photo upload failed:', err);
     return null;
   }
 };
 
 // --- Send alert ---
-export const sendAlert = async (text, category = 'other', photoUri = null) => {
+export const sendAlert = async (text, category = 'other', photoBase64 = null) => {
   const device_uuid = await getDeviceUUID();
   const { lat, lng } = await getCurrentPosition(3);
 
   let photoUrl = null;
-  if (photoUri) {
-    photoUrl = await uploadAlertPhoto(photoUri, device_uuid);
+  if (photoBase64) {
+    photoUrl = await uploadAlertPhoto(photoBase64, device_uuid);
   }
 
   const { data, error } = await supabase
@@ -142,16 +140,18 @@ export const fetchMyAlerts = async () => {
 // --- Update alert ---
 export const updateAlert = async (id, newText) => {
   try {
+    const device_uuid = await getDeviceUUID();
     const { error: updateError } = await supabase
       .from('alerts')
       .update({ text: newText, updated_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('device_uuid', device_uuid);
     if (updateError) throw updateError;
     const { error: incError } = await supabase.rpc('increment', { row_id: id });
     if (incError) console.warn('Increment failed', incError);
     broadcastAlert(id, 'edit');
   } catch (err) {
-    console.error('Update error', err);
+    console.error('Update error:', err);
     throw new Error(err.message || 'Could not update alert.');
   }
 };
@@ -159,6 +159,7 @@ export const updateAlert = async (id, newText) => {
 // --- Delete alert ---
 export const deleteAlert = async (id) => {
   try {
+    const device_uuid = await getDeviceUUID();
     const { data: alert, error: fetchError } = await supabase
       .from('alerts')
       .select('device_uuid')
@@ -168,7 +169,8 @@ export const deleteAlert = async (id) => {
     const { error } = await supabase
       .from('alerts')
       .update({ deleted: true })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('device_uuid', device_uuid);
     if (error) throw error;
     await sendPrivateNotification(
       alert.device_uuid,
@@ -177,7 +179,7 @@ export const deleteAlert = async (id) => {
     );
     broadcastAlert(id, 'delete');
   } catch (err) {
-    console.error('Delete error', err);
+    console.error('Delete error:', err);
     throw new Error(err.message || 'Could not delete alert.');
   }
 };

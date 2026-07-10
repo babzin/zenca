@@ -26,7 +26,7 @@ async function broadcastAlert(alertId, type) {
   try {
     const { data: alert, error } = await supabase
       .from('alerts')
-      .select('id, text, location, device_uuid, category, photo_url')
+      .select('id, text, location, device_uuid, category, photo_url, audio_url')
       .eq('id', alertId)
       .single();
     if (error || !alert) return;
@@ -49,7 +49,6 @@ export const uploadAlertPhoto = async (base64, device_uuid) => {
     const filePath = `${device_uuid}/${fileName}`;
     const contentType = `image/${fileExt}`;
 
-    // Convert base64 to Blob
     const byteCharacters = atob(base64);
     const byteNumbers = new Array(byteCharacters.length);
     for (let i = 0; i < byteCharacters.length; i++) {
@@ -75,14 +74,44 @@ export const uploadAlertPhoto = async (base64, device_uuid) => {
   }
 };
 
-// --- Send alert ---
-export const sendAlert = async (text, category = 'other', photoBase64 = null) => {
+// --- Upload audio (works with blob from fetch) ---
+export const uploadAlertAudio = async (uri, device_uuid) => {
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const fileExt = 'm4a';
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${device_uuid}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('alert-photos')
+      .upload(filePath, blob, {
+        contentType: 'audio/mp4',
+        cacheControl: '3600',
+        upsert: false,
+      });
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage.from('alert-photos').getPublicUrl(filePath);
+    console.log('Uploaded audio URL:', publicUrl);
+    return publicUrl;
+  } catch (err) {
+    console.error('Audio upload failed:', err);
+    return null;
+  }
+};
+
+// --- Send alert (with photo and/or audio) ---
+export const sendAlert = async (text, category = 'other', photoBase64 = null, audioUri = null) => {
   const device_uuid = await getDeviceUUID();
   const { lat, lng } = await getCurrentPosition(3);
 
   let photoUrl = null;
   if (photoBase64) {
     photoUrl = await uploadAlertPhoto(photoBase64, device_uuid);
+  }
+  let audioUrl = null;
+  if (audioUri) {
+    audioUrl = await uploadAlertAudio(audioUri, device_uuid);
   }
 
   const { data, error } = await supabase
@@ -92,6 +121,7 @@ export const sendAlert = async (text, category = 'other', photoBase64 = null) =>
       category,
       location: `POINT(${lng} ${lat})`,
       photo_url: photoUrl,
+      audio_url: audioUrl,
       device_uuid,
     })
     .select('id')
@@ -127,7 +157,7 @@ export const fetchMyAlerts = async () => {
     const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
     const { data, error } = await supabase
       .from('alerts')
-      .select('id, text, category, created_at, edit_count, photo_url')
+      .select('id, text, category, created_at, edit_count, photo_url, audio_url')
       .eq('deleted', false)
       .gt('created_at', oneHourAgo);
     if (error) throw error;
@@ -188,49 +218,36 @@ export const deleteAlert = async (id) => {
 export const reportAlert = async (alertId) => {
   try {
     const device_uuid = await getDeviceUUID();
-    
-    // Check if already reported
     const { data: existing, error: checkError } = await supabase
       .from('alert_reports')
       .select('id')
       .eq('alert_id', alertId)
       .eq('reporter_device_uuid', device_uuid)
       .maybeSingle();
-    
     if (checkError) throw checkError;
     if (existing) {
       throw new Error('You have already reported this alert.');
     }
-
-    // Insert report
     const { error: insertError } = await supabase
       .from('alert_reports')
       .insert({
         alert_id: alertId,
         reporter_device_uuid: device_uuid,
       });
-    
     if (insertError) throw insertError;
-
-    // Count reports for this alert
     const { count, error: countError } = await supabase
       .from('alert_reports')
       .select('id', { count: 'exact', head: true })
       .eq('alert_id', alertId);
-    
     if (countError) throw countError;
-
     const THRESHOLD = 3;
     if (count >= THRESHOLD) {
-      // Get alert owner's device_uuid
       const { data: alert, error: alertError } = await supabase
         .from('alerts')
         .select('device_uuid')
         .eq('id', alertId)
         .single();
-      
       if (!alertError && alert) {
-        // Send nudge to alert owner
         await fetch(`${Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl}/send-report-nudge`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -243,7 +260,6 @@ export const reportAlert = async (alertId) => {
         }).catch(err => console.warn('Nudge failed', err));
       }
     }
-    
     return true;
   } catch (err) {
     console.error('Report error:', err);

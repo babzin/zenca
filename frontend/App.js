@@ -8,12 +8,10 @@ import { Alert, View, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
-// Services
 import { initSupabase } from './src/services/supabase';
 import { requestPermissions, registerForPushNotifications } from './src/services/fcm';
 import { initLocationTracking } from './src/services/location';
 
-// Screens
 import HomeScreen from './src/screens/HomeScreen';
 import MyAlertsScreen from './src/screens/MyAlertsScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
@@ -23,7 +21,6 @@ import TermsScreen from './src/screens/TermsScreen';
 import EmergencyDisclaimerScreen from './src/screens/EmergencyDisclaimerScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 
-// Utils
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
 
 const Tab = createBottomTabNavigator();
@@ -100,6 +97,9 @@ function MainTabs() {
           }
           return <IconComponent name={iconName} size={size} color={color} />;
         },
+        // Enable swipe between tabs
+        swipeEnabled: true,
+        animation: 'shift', // optional smooth transition
       })}
     >
       <Tab.Screen name="Alerts" component={HomeScreen} />

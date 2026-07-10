@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { fetchMyAlerts, updateAlert, deleteAlert } from '../services/alerts';
 import { useTheme } from '../contexts/ThemeContext';
+import { AudioPlayer } from '../components/AudioPlayer';
 
 const getCategoryName = (category) => {
   const names = {
@@ -54,7 +55,7 @@ export default function MyAlertsScreen() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -98,9 +99,7 @@ export default function MyAlertsScreen() {
     );
   };
 
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
-  };
+  const formatTime = (timestamp) => new Date(timestamp).toLocaleString();
 
   const styles = StyleSheet.create({
     container: { flex: 1, padding: 16, backgroundColor: theme.background },
@@ -160,6 +159,7 @@ export default function MyAlertsScreen() {
             <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
             <Text style={styles.alertMeta}>Sent: {formatTime(item.created_at)}</Text>
             {item.edit_count > 0 && <Text style={styles.editMeta}>Edited {item.edit_count} time(s)</Text>}
+            {item.audio_url && <AudioPlayer audioUrl={item.audio_url} />}
             <View style={styles.buttonRow}>
               <Button title="Edit" onPress={() => handleEdit(item)} />
               <Button title="Delete" color="red" onPress={() => handleDelete(item.id)} />

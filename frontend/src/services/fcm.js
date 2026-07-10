@@ -14,10 +14,7 @@ export const requestPermissions = async () => {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      Alert.alert(
-        'Notifications Disabled',
-        'You will not receive emergency alerts from nearby users. Enable in settings to stay safe.'
-      );
+      Alert.alert('Notifications Disabled', 'You will not receive emergency alerts from nearby users. Enable in settings to stay safe.');
     }
     return finalStatus === 'granted';
   } catch (err) {
@@ -73,3 +70,12 @@ export const registerForPushNotifications = async (retry = true) => {
     if (retry) setTimeout(() => registerForPushNotifications(false), 5000);
   }
 };
+
+// --- Notification handler ---
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});

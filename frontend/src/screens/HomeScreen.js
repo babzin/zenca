@@ -20,6 +20,8 @@ import { fetchNearbyAlerts, sendAlert, reportAlert, hasUserReportedAlert } from 
 import { getCurrentPosition } from '../services/location';
 import CategorySelector from '../components/CategorySelector';
 import { useTheme } from '../contexts/ThemeContext';
+import { VoiceRecorder } from '../components/VoiceRecorder';
+import { AudioPlayer } from '../components/AudioPlayer';
 
 const TEST_ALERTS_KEY = '@zenca_test_alerts';
 const PAGE_SIZE = 20;
@@ -27,26 +29,23 @@ const PAGE_SIZE = 20;
 export default function HomeScreen() {
   const { theme } = useTheme();
 
-  // Real alerts state (paginated)
   const [allAlerts, setAllAlerts] = useState([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Test alerts state
   const [testAlerts, setTestAlerts] = useState([]);
-
-  // Form state
   const [dangerText, setDangerText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('other');
   const [photoBase64, setPhotoBase64] = useState(null);
+  const [audioUri, setAudioUri] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false);
   const [reportingId, setReportingId] = useState(null);
 
-  // Load test alerts from AsyncStorage
+  // ... existing loadTestAlerts, saveTestAlerts, loadRealAlerts, etc.
+
   const loadTestAlerts = async () => {
     try {
       const stored = await AsyncStorage.getItem(TEST_ALERTS_KEY);
@@ -72,7 +71,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Load real alerts (paginated)
   const loadRealAlerts = async (reset = true, pageNum = 0) => {
     try {
       if (reset) {
@@ -99,18 +97,16 @@ export default function HomeScreen() {
     }
   };
 
-  // Initial load and refresh interval
   useEffect(() => {
     loadRealAlerts(true, 0);
     loadTestAlerts();
     const interval = setInterval(() => {
       loadRealAlerts(true, 0);
       loadTestAlerts();
-    }, 60000); // 60 seconds
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Load more when scrolling
   const loadMore = () => {
     if (!hasMore || loadingMore || loading) return;
     const nextPage = page + 1;
@@ -118,7 +114,7 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
-  // Image pickers with base64
+  // Photo pickers with base64
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -152,7 +148,10 @@ export default function HomeScreen() {
     }
   };
 
-  // Send real alert
+  const handleAudioRecorded = (uri) => {
+    setAudioUri(uri);
+  };
+
   const handleSendRealAlert = async () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -160,10 +159,9 @@ export default function HomeScreen() {
     }
     setLoading(true);
     try {
-      await sendAlert(dangerText, selectedCategory, photoBase64);
+      await sendAlert(dangerText, selectedCategory, photoBase64, audioUri);
       Alert.alert('Alert Sent', 'Your emergency signal has been broadcast.');
       resetForm();
-      // Delay refresh to allow photo URL to be available
       setTimeout(() => loadRealAlerts(true, 0), 2000);
     } catch (err) {
       Alert.alert('Failed', err.message || 'Could not send alert.');
@@ -173,7 +171,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Send test alert (local only)
   const handleSendTestAlert = () => {
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
@@ -184,6 +181,7 @@ export default function HomeScreen() {
       text: dangerText || '(Test alert – no description)',
       category: selectedCategory,
       photo_url: photoBase64 ? `data:image/jpeg;base64,${photoBase64}` : null,
+      audio_url: audioUri, // store URI for playback (local only)
       created_at: new Date().toISOString(),
       distance: 0,
       isTest: true,
@@ -200,6 +198,7 @@ export default function HomeScreen() {
     setDangerText('');
     setSelectedCategory('other');
     setPhotoBase64(null);
+    setAudioUri(null);
   };
 
   const openConfirmModal = (isTest = false) => {
@@ -215,7 +214,8 @@ export default function HomeScreen() {
     }
   };
 
-  // Report false alert
+  // ... handleReport, handleShareAlert, handleViewOnMap, handleSOSWhatsApp, clearTestAlerts
+
   const handleReport = async (alertId) => {
     setReportingId(alertId);
     try {
@@ -250,13 +250,12 @@ export default function HomeScreen() {
     }
   };
 
-  // Share alert externally
   const handleShareAlert = async (alert) => {
     try {
       const categoryName = alert.category ? alert.category.toUpperCase() : 'ALERT';
       const message = `ZENCA ALERT\nType: ${categoryName}\nDescription: ${alert.text || 'No details'}\nDistance: ${Math.round(alert.distance)}m away\nTime: ${new Date(alert.created_at).toLocaleString()}\n\nStay safe. Verify before acting. Download Zenca: https://zenca.com/download`;
       await Share.share({
-        message: message,
+        message,
         title: `Zenca Alert - ${categoryName}`,
       });
     } catch (err) {
@@ -264,7 +263,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Open external map with alert location
   const handleViewOnMap = (alert) => {
     if (!alert.latitude || !alert.longitude) {
       Alert.alert('Error', 'Location data not available for this alert.');
@@ -276,27 +274,18 @@ export default function HomeScreen() {
     });
   };
 
-  // SOS WhatsApp (text‑only)
   const handleSOSWhatsApp = async () => {
     try {
-      let location = await getCurrentPosition(2);
-      const lat = location.lat;
-      const lng = location.lng;
-      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      const location = await getCurrentPosition(2);
+      const mapsLink = `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`;
       const categoryName = selectedCategory ? selectedCategory.toUpperCase() : 'OTHER';
-
       const message = `ZENCA SOS ALERT\n\nType: ${categoryName}\nDescription: ${dangerText || 'No details provided'}\nLocation: ${mapsLink}\n\nPlease stay safe and verify this information.`;
-
-      await Share.share({
-        message: message,
-        title: `Zenca SOS - ${categoryName}`,
-      });
+      await Share.share({ message, title: `Zenca SOS - ${categoryName}` });
     } catch (err) {
       Alert.alert('Error', 'Could not send SOS. Please enable location and try again.');
     }
   };
 
-  // Clear test alerts
   const clearTestAlerts = async () => {
     Alert.alert(
       'Clear Test Alerts',
@@ -315,7 +304,6 @@ export default function HomeScreen() {
     );
   };
 
-  // Helpers for UI
   const getCategoryColor = (category) => {
     const colors = {
       kidnapping: '#d32f2f',
@@ -338,11 +326,9 @@ export default function HomeScreen() {
     return names[category] || 'Other';
   };
 
-  // Merge real + test alerts (test alerts first)
   const combinedAlerts = [...testAlerts, ...allAlerts];
   const isEmpty = combinedAlerts.length === 0 && !loading;
 
-  // Theme‑based styles
   const styles = StyleSheet.create({
     container: { flex: 1, padding: 16, backgroundColor: theme.background },
     sendContainer: {
@@ -447,7 +433,6 @@ export default function HomeScreen() {
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: 4,
-      overflow: 'hidden',
     },
     alertImage: {
       width: '100%',
@@ -541,19 +526,18 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
+        <VoiceRecorder onRecordComplete={handleAudioRecorded} disabled={loading} />
+        {audioUri && (
+          <View style={styles.previewContainer}>
+            <AudioPlayer audioUrl={audioUri} />
+            <TouchableOpacity onPress={() => setAudioUri(null)} style={styles.removePhoto}>
+              <Text style={styles.removePhotoText}>Remove Audio</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={styles.buttonRow}>
-          <Button
-            title="DANGER"
-            onPress={() => openConfirmModal(false)}
-            disabled={loading}
-            color="#d32f2f"
-          />
-          <Button
-            title="Test Alert"
-            onPress={() => openConfirmModal(true)}
-            disabled={loading}
-            color="#757575"
-          />
+          <Button title="DANGER" onPress={() => openConfirmModal(false)} disabled={loading} color="#d32f2f" />
+          <Button title="Test Alert" onPress={() => openConfirmModal(true)} disabled={loading} color="#757575" />
         </View>
         <View style={styles.sosRow}>
           <TouchableOpacity style={styles.sosButton} onPress={handleSOSWhatsApp} disabled={loading}>
@@ -602,6 +586,7 @@ export default function HomeScreen() {
               {new Date(item.created_at).toLocaleTimeString()} •{' '}
               {item.distance ? `${Math.round(item.distance)}m away` : 'Unknown distance'}
             </Text>
+            {item.audio_url && <AudioPlayer audioUrl={item.audio_url} />}
             {!item.isTest && (
               <View style={styles.actionRow}>
                 <TouchableOpacity
@@ -613,16 +598,10 @@ export default function HomeScreen() {
                     {reportingId === item.id ? '...' : 'Report'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleShareAlert(item)}
-                  style={styles.actionButton}
-                >
+                <TouchableOpacity onPress={() => handleShareAlert(item)} style={styles.actionButton}>
                   <Text style={styles.actionButtonText}>Share</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleViewOnMap(item)}
-                  style={[styles.actionButton, styles.mapButton]}
-                >
+                <TouchableOpacity onPress={() => handleViewOnMap(item)} style={[styles.actionButton, styles.mapButton]}>
                   <Text style={styles.mapButtonText}>View on Map</Text>
                 </TouchableOpacity>
               </View>
@@ -642,19 +621,14 @@ export default function HomeScreen() {
           loadingMore ? (
             <ActivityIndicator size="small" style={{ margin: 20 }} color={theme.primary} />
           ) : (
-            !hasMore && combinedAlerts.length > 0 && (
-              <Text style={styles.endMessage}>No more alerts</Text>
-            )
+            !hasMore && combinedAlerts.length > 0 && <Text style={styles.endMessage}>No more alerts</Text>
           )
         }
         ListEmptyComponent={
-          isEmpty && !loadingMore ? (
-            <Text style={styles.empty}>No active alerts within 5km.</Text>
-          ) : null
+          isEmpty && !loadingMore ? <Text style={styles.empty}>No active alerts within 5km.</Text> : null
         }
       />
 
-      {/* Confirmation Modal */}
       <Modal visible={showConfirmModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -667,16 +641,10 @@ export default function HomeScreen() {
                 : 'Are you absolutely sure? This will notify everyone within 5 km.'}
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowConfirmModal(false)}
-              >
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowConfirmModal(false)}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, isTestMode ? styles.testConfirmButton : styles.confirmButton]}
-                onPress={handleConfirmSend}
-              >
+              <TouchableOpacity style={[styles.modalButton, isTestMode ? styles.testConfirmButton : styles.confirmButton]} onPress={handleConfirmSend}>
                 <Text style={styles.confirmButtonText}>Yes, Send</Text>
               </TouchableOpacity>
             </View>

@@ -2,35 +2,23 @@ import React from 'react';
 import {
   View,
   Text,
-  Button,
-  StyleSheet,
   Linking,
   Alert,
   ScrollView,
   TouchableOpacity,
-  Switch,
+  StyleSheet,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function FeedbackScreen() {
-  const { theme, isDark, themeMode, toggleTheme } = useTheme();
+  const { theme } = useTheme();
 
   const handleEmail = (subject, body = '') => {
-    const emailUrl = `mailto:support@zenca.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const emailUrl = `mailto:zenca963@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     Linking.openURL(emailUrl).catch(() => {
       Alert.alert(
         'No Email App',
         'Please email zenca963@gmail.com manually from your email app.'
-      );
-    });
-  };
-
-  const handleDemoRequest = () => {
-    const demoFormUrl = 'https://tally.so/r/rjYXbL';
-    Linking.openURL(demoFormUrl).catch(() => {
-      Alert.alert(
-        'Cannot Open Link',
-        'Please visit our website to request a demo.'
       );
     });
   };
@@ -87,9 +75,6 @@ export default function FeedbackScreen() {
     buttonSuggest: {
       backgroundColor: '#4caf50',
     },
-    buttonDemo: {
-      backgroundColor: '#ff9800',
-    },
     buttonText: {
       color: '#fff',
       fontWeight: 'bold',
@@ -101,19 +86,6 @@ export default function FeedbackScreen() {
       textAlign: 'center',
       marginTop: 20,
       marginBottom: 30,
-    },
-    darkModeRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    darkModeLabel: {
-      fontSize: 16,
-      color: theme.text,
-      fontWeight: '500',
     },
   });
 
@@ -145,43 +117,6 @@ export default function FeedbackScreen() {
           onPress={() => handleEmail('Feature Suggestion: Zenca', 'Describe your idea:\n\n')}
         >
           <Text style={styles.buttonText}>Suggest Feature</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Request a Demo</Text>
-        <Text style={styles.cardText}>
-          Interested in Zenca for your community, organization, or state?
-        </Text>
-        <TouchableOpacity
-          style={[styles.button, styles.buttonDemo]}
-          onPress={handleDemoRequest}
-        >
-          <Text style={styles.buttonText}>Request Demo</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Dark Mode</Text>
-        <Text style={styles.cardText}>
-          Choose your preferred appearance.
-        </Text>
-        <View style={styles.darkModeRow}>
-          <Text style={styles.darkModeLabel}>Dark Mode</Text>
-          <Switch
-            value={isDark}
-            onValueChange={() => toggleTheme(isDark ? 'light' : 'dark')}
-            trackColor={{ false: '#ccc', true: '#d32f2f' }}
-            thumbColor={isDark ? '#fff' : '#fff'}
-          />
-        </View>
-        <TouchableOpacity
-          style={{ marginTop: 8 }}
-          onPress={() => toggleTheme('system')}
-        >
-          <Text style={{ color: theme.primary, fontWeight: 'bold' }}>
-            {themeMode === 'system' ? 'Use System Theme' : 'Use System Theme'}
-          </Text>
         </TouchableOpacity>
       </View>
 

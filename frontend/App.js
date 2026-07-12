@@ -8,6 +8,7 @@ import { Alert, View, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { NetworkBanner } from './src/components/NetworkBanner';
+import { NotificationPermissionReminder } from './src/components/NotificationPermissionReminder';
 
 // Services
 import { initSupabase } from './src/services/supabase';
@@ -34,12 +35,14 @@ import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilt
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Configure notification handler for duplicate filtering + history storage
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
       const data = notification.request.content.data;
       const body = notification.request.content.body || 'Alert';
 
+      // Save to history (before duplicate check)
       if (data && data.alert_id) {
         saveNotification({
           alert_id: data.alert_id,
@@ -48,6 +51,7 @@ Notifications.setNotificationHandler({
         });
       }
 
+      // Duplicate suppression check
       if (data && data.latitude && data.longitude) {
         const isDuplicate = await isDuplicateAlert(
           parseFloat(data.latitude),
@@ -73,6 +77,7 @@ Notifications.setNotificationHandler({
   },
 });
 
+// --- Bottom Tab Navigator ---
 function MainTabs() {
   const { theme } = useTheme();
   return (
@@ -134,9 +139,11 @@ function MainTabs() {
   );
 }
 
+// --- Stack Navigator ---
 function AppNavigator() {
   const { theme } = useTheme();
 
+  // Listen for notification responses (user taps notification)
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
@@ -189,6 +196,7 @@ function AppNavigator() {
   );
 }
 
+// --- Main App ---
 export default function App() {
   const [appReady, setAppReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -269,6 +277,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <AppNavigator />
+      {/* Show permission reminder only when app is fully ready and not in onboarding/disclaimer */}
+      <NotificationPermissionReminder />
     </ThemeProvider>
   );
 }

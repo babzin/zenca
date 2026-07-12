@@ -10,23 +10,25 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAlertRadius, setAlertRadius } from '../services/radiusStorage';
 import { getEmergencyNumber, setEmergencyNumber } from '../services/emergencyNumber';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Slider from '@react-native-community/slider';
 import packageJson from '../../package.json';
 
 const NOTIFICATION_STORAGE_KEY = '@zenca_notification_history';
 
 export default function SettingsScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
+  const navigation = useNavigation();
   const [radius, setRadius] = useState(5);
   const [emergencyNumber, setEmergencyNumberState] = useState('112');
   const [emergencyInput, setEmergencyInput] = useState('');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
 
-  // Load saved settings
   useEffect(() => {
     const loadSettings = async () => {
       const r = await getAlertRadius();
@@ -34,7 +36,6 @@ export default function SettingsScreen() {
       const num = await getEmergencyNumber();
       setEmergencyNumberState(num);
       setEmergencyInput(num);
-      // Count notifications
       const stored = await AsyncStorage.getItem(NOTIFICATION_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -199,13 +200,21 @@ export default function SettingsScreen() {
       fontWeight: '600',
       fontSize: 14,
     },
+    legalButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 6,
+    },
+    legalButtonText: {
+      color: theme.primary,
+      fontSize: 14,
+    },
     versionText: {
       fontSize: 14,
       color: theme.textSecondary,
       textAlign: 'center',
       marginTop: 20,
     },
-    // Modal styles
     modalOverlay: {
       flex: 1,
       backgroundColor: theme.modalOverlay,
@@ -341,6 +350,27 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Legal Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Legal</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={[styles.row, styles.rowLast]}
+              onPress={() => navigation.navigate('PrivacyPolicy')}
+            >
+              <Text style={styles.label}>Privacy Policy</Text>
+              <Text style={styles.value}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.row, styles.rowLast]}
+              onPress={() => navigation.navigate('Terms')}
+            >
+              <Text style={styles.label}>Terms & Conditions</Text>
+              <Text style={styles.value}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Data Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data</Text>
@@ -372,7 +402,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* About Section */}
+        {/* About Section – App Version Display */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>
@@ -421,6 +451,3 @@ export default function SettingsScreen() {
     </View>
   );
 }
-
-// Slider component (we need to import it)
-import Slider from '@react-native-community/slider';

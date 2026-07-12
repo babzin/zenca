@@ -9,10 +9,12 @@ import {
   Modal,
   StyleSheet,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { fetchMyAlerts, updateAlert, deleteAlert } from '../services/alerts';
 import { useTheme } from '../contexts/ThemeContext';
 import { AudioPlayer } from '../components/AudioPlayer';
+import { useNavigation } from '@react-navigation/native';
 
 const getCategoryName = (category) => {
   const names = {
@@ -38,6 +40,7 @@ const getCategoryColor = (category) => {
 
 export default function MyAlertsScreen() {
   const { theme } = useTheme();
+  const navigation = useNavigation();
   const [alerts, setAlerts] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
@@ -153,18 +156,23 @@ export default function MyAlertsScreen() {
         data={alerts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={[styles.alertItem, { borderLeftWidth: 4, borderLeftColor: getCategoryColor(item.category) }]}>
-            <Text style={styles.categoryBadge}>{getCategoryName(item.category).toUpperCase()}</Text>
-            {item.photo_url && <Image source={{ uri: item.photo_url }} style={styles.alertImage} />}
-            <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
-            <Text style={styles.alertMeta}>Sent: {formatTime(item.created_at)}</Text>
-            {item.edit_count > 0 && <Text style={styles.editMeta}>Edited {item.edit_count} time(s)</Text>}
-            {item.audio_url && <AudioPlayer audioUrl={item.audio_url} />}
-            <View style={styles.buttonRow}>
-              <Button title="Edit" onPress={() => handleEdit(item)} />
-              <Button title="Delete" color="red" onPress={() => handleDelete(item.id)} />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('AlertDetail', { alert: item })}
+          >
+            <View style={[styles.alertItem, { borderLeftWidth: 4, borderLeftColor: getCategoryColor(item.category) }]}>
+              <Text style={styles.categoryBadge}>{getCategoryName(item.category).toUpperCase()}</Text>
+              {item.photo_url && <Image source={{ uri: item.photo_url }} style={styles.alertImage} />}
+              <Text style={styles.alertText}>{item.text || '(No description)'}</Text>
+              <Text style={styles.alertMeta}>Sent: {formatTime(item.created_at)}</Text>
+              {item.edit_count > 0 && <Text style={styles.editMeta}>Edited {item.edit_count} time(s)</Text>}
+              {item.audio_url && <AudioPlayer audioUrl={item.audio_url} />}
+              <View style={styles.buttonRow}>
+                <Button title="Edit" onPress={() => handleEdit(item)} />
+                <Button title="Delete" color="red" onPress={() => handleDelete(item.id)} />
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
         refreshing={refreshing}
         onRefresh={async () => {

@@ -66,7 +66,6 @@ export const uploadAlertPhoto = async (base64, device_uuid) => {
       });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from('alert-photos').getPublicUrl(filePath);
-    console.log('Uploaded photo URL:', publicUrl);
     return publicUrl;
   } catch (err) {
     console.error('Photo upload failed:', err);
@@ -74,7 +73,7 @@ export const uploadAlertPhoto = async (base64, device_uuid) => {
   }
 };
 
-// --- Upload audio (works with blob from fetch) ---
+// --- Upload audio (from URI) ---
 export const uploadAlertAudio = async (uri, device_uuid) => {
   try {
     const response = await fetch(uri);
@@ -92,7 +91,6 @@ export const uploadAlertAudio = async (uri, device_uuid) => {
       });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from('alert-photos').getPublicUrl(filePath);
-    console.log('Uploaded audio URL:', publicUrl);
     return publicUrl;
   } catch (err) {
     console.error('Audio upload failed:', err);
@@ -100,18 +98,30 @@ export const uploadAlertAudio = async (uri, device_uuid) => {
   }
 };
 
-// --- Send alert (with photo and/or audio) ---
+// --- Send alert (with optional photo and audio) ---
 export const sendAlert = async (text, category = 'other', photoBase64 = null, audioUri = null) => {
   const device_uuid = await getDeviceUUID();
   const { lat, lng } = await getCurrentPosition(3);
 
   let photoUrl = null;
-  if (photoBase64) {
-    photoUrl = await uploadAlertPhoto(photoBase64, device_uuid);
-  }
   let audioUrl = null;
-  if (audioUri) {
-    audioUrl = await uploadAlertAudio(audioUri, device_uuid);
+
+  try {
+    if (photoBase64) {
+      photoUrl = await uploadAlertPhoto(photoBase64, device_uuid);
+      if (!photoUrl) {
+        throw new Error('Photo upload failed – please try again.');
+      }
+    }
+    if (audioUri) {
+      audioUrl = await uploadAlertAudio(audioUri, device_uuid);
+      if (!audioUrl) {
+        throw new Error('Audio upload failed – please try again.');
+      }
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    throw new Error('Could not upload your media. Please check your connection and try again.');
   }
 
   const { data, error } = await supabase
@@ -132,14 +142,15 @@ export const sendAlert = async (text, category = 'other', photoBase64 = null, au
   return data.id;
 };
 
-// --- Fetch nearby alerts (pagination) ---
-export const fetchNearbyAlerts = async (limit = 20, offset = 0) => {
+// --- Fetch nearby alerts (pagination + custom radius) ---
+export const fetchNearbyAlerts = async (limit = 20, offset = 0, radius_km = 5) => {
   try {
     const { lat, lng } = await getCurrentPosition(2);
+    const radius_m = radius_km * 1000;
     const { data, error } = await supabase.rpc('nearby_alerts', {
       lat,
       lng,
-      radius_m: 5000,
+      radius_m: radius_m,
       limit_count: limit,
       offset_count: offset,
     });
@@ -167,7 +178,7 @@ export const fetchMyAlerts = async () => {
   }
 };
 
-// --- Update alert ---
+// --- Update alert (only if sender) ---
 export const updateAlert = async (id, newText) => {
   try {
     const device_uuid = await getDeviceUUID();
@@ -186,7 +197,7 @@ export const updateAlert = async (id, newText) => {
   }
 };
 
-// --- Delete alert ---
+// --- Delete alert (soft delete, amnesty notification) ---
 export const deleteAlert = async (id) => {
   try {
     const device_uuid = await getDeviceUUID();
@@ -211,76 +222,5 @@ export const deleteAlert = async (id) => {
   } catch (err) {
     console.error('Delete error:', err);
     throw new Error(err.message || 'Could not delete alert.');
-  }
-};
-
-// --- Report alert ---
-export const reportAlert = async (alertId) => {
-  try {
-    const device_uuid = await getDeviceUUID();
-    const { data: existing, error: checkError } = await supabase
-      .from('alert_reports')
-      .select('id')
-      .eq('alert_id', alertId)
-      .eq('reporter_device_uuid', device_uuid)
-      .maybeSingle();
-    if (checkError) throw checkError;
-    if (existing) {
-      throw new Error('You have already reported this alert.');
-    }
-    const { error: insertError } = await supabase
-      .from('alert_reports')
-      .insert({
-        alert_id: alertId,
-        reporter_device_uuid: device_uuid,
-      });
-    if (insertError) throw insertError;
-    const { count, error: countError } = await supabase
-      .from('alert_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('alert_id', alertId);
-    if (countError) throw countError;
-    const THRESHOLD = 3;
-    if (count >= THRESHOLD) {
-      const { data: alert, error: alertError } = await supabase
-        .from('alerts')
-        .select('device_uuid')
-        .eq('id', alertId)
-        .single();
-      if (!alertError && alert) {
-        await fetch(`${Constants.expoConfig?.extra?.supabaseEdgeFunctionUrl}/send-report-nudge`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            alert_id: alertId,
-            sender_device_uuid: alert.device_uuid,
-            report_count: count,
-            threshold: THRESHOLD,
-          }),
-        }).catch(err => console.warn('Nudge failed', err));
-      }
-    }
-    return true;
-  } catch (err) {
-    console.error('Report error:', err);
-    throw new Error(err.message || 'Could not report alert.');
-  }
-};
-
-// --- Check if user already reported ---
-export const hasUserReportedAlert = async (alertId) => {
-  try {
-    const device_uuid = await getDeviceUUID();
-    const { data, error } = await supabase
-      .from('alert_reports')
-      .select('id')
-      .eq('alert_id', alertId)
-      .eq('reporter_device_uuid', device_uuid)
-      .maybeSingle();
-    if (error) throw error;
-    return !!data;
-  } catch (err) {
-    console.warn('Check report error:', err);
-    return false;
   }
 };

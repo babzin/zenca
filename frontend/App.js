@@ -7,11 +7,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, View, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { NetworkBanner } from './src/components/NetworkBanner';
 
+// Services
 import { initSupabase } from './src/services/supabase';
 import { requestPermissions, registerForPushNotifications } from './src/services/fcm';
 import { initLocationTracking } from './src/services/location';
+import { saveNotification } from './src/services/notificationStorage';
 
+// Screens
 import HomeScreen from './src/screens/HomeScreen';
 import MyAlertsScreen from './src/screens/MyAlertsScreen';
 import ContactsScreen from './src/screens/ContactsScreen';
@@ -20,7 +24,11 @@ import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
 import TermsScreen from './src/screens/TermsScreen';
 import EmergencyDisclaimerScreen from './src/screens/EmergencyDisclaimerScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import AlertDetailScreen from './src/screens/AlertDetailScreen';
+import NotificationHistoryScreen from './src/screens/NotificationHistoryScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
+// Utils
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
 
 const Tab = createBottomTabNavigator();
@@ -30,6 +38,16 @@ Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
       const data = notification.request.content.data;
+      const body = notification.request.content.body || 'Alert';
+
+      if (data && data.alert_id) {
+        saveNotification({
+          alert_id: data.alert_id,
+          category: data.category || 'other',
+          text: body,
+        });
+      }
+
       if (data && data.latitude && data.longitude) {
         const isDuplicate = await isDuplicateAlert(
           parseFloat(data.latitude),
@@ -45,7 +63,7 @@ Notifications.setNotificationHandler({
         await recordAlertLocation(parseFloat(data.latitude), parseFloat(data.longitude));
       }
     } catch (err) {
-      console.warn('Duplicate filter error', err);
+      console.warn('Notification handler error', err);
     }
     return {
       shouldShowAlert: true,
@@ -89,6 +107,12 @@ function MainTabs() {
               IconComponent = MaterialIcons;
               iconName = focused ? 'contacts' : 'contacts';
               break;
+            case 'Notifications':
+              iconName = focused ? 'notifications' : 'notifications-outline';
+              break;
+            case 'Settings':
+              iconName = focused ? 'settings' : 'settings-outline';
+              break;
             case 'Help':
               iconName = focused ? 'help-circle' : 'help-circle-outline';
               break;
@@ -97,14 +121,14 @@ function MainTabs() {
           }
           return <IconComponent name={iconName} size={size} color={color} />;
         },
-        // Enable swipe between tabs
         swipeEnabled: true,
-        animation: 'shift', // optional smooth transition
       })}
     >
       <Tab.Screen name="Alerts" component={HomeScreen} />
       <Tab.Screen name="My Alerts" component={MyAlertsScreen} />
       <Tab.Screen name="Emergency Contacts" component={ContactsScreen} />
+      <Tab.Screen name="Notifications" component={NotificationHistoryScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
       <Tab.Screen name="Help" component={FeedbackScreen} />
     </Tab.Navigator>
   );
@@ -112,34 +136,56 @@ function MainTabs() {
 
 function AppNavigator() {
   const { theme } = useTheme();
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        const body = response.notification.request.content.body || 'Alert';
+        if (data && data.alert_id) {
+          saveNotification({
+            alert_id: data.alert_id,
+            category: data.category || 'other',
+            text: body,
+          });
+        }
+      }
+    );
+    return () => subscription.remove();
+  }, []);
+
   return (
-    <NavigationContainer
-      theme={{
-        colors: {
-          background: theme.background,
-          card: theme.card,
-          text: theme.text,
-          border: theme.border,
-          primary: theme.primary,
-        },
-      }}
-    >
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: theme.headerBackground,
+    <View style={{ flex: 1 }}>
+      <NavigationContainer
+        theme={{
+          colors: {
+            background: theme.background,
+            card: theme.card,
+            text: theme.text,
+            border: theme.border,
+            primary: theme.primary,
           },
-          headerTitleStyle: {
-            color: theme.headerText,
-          },
-          headerTintColor: theme.primary,
         }}
       >
-        <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
-        <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
-      </Stack.Navigator>
-    </NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: theme.headerBackground,
+            },
+            headerTitleStyle: {
+              color: theme.headerText,
+            },
+            headerTintColor: theme.primary,
+          }}
+        >
+          <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+          <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
+          <Stack.Screen name="AlertDetail" component={AlertDetailScreen} options={{ title: 'Alert Details' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+      <NetworkBanner />
+    </View>
   );
 }
 

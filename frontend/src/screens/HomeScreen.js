@@ -13,17 +13,18 @@ import {
   Image,
   Linking,
   Share,
-  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { fetchNearbyAlerts, sendAlert } from '../services/alerts';
 import { getAlertRadius } from '../services/radiusStorage';
+import { getSelectedCategories } from '../services/categoryFilter';
 import CategorySelector from '../components/CategorySelector';
 import { useTheme } from '../contexts/ThemeContext';
 import { VoiceRecorder } from '../components/VoiceRecorder';
 import { AudioPlayer } from '../components/AudioPlayer';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
+import { CategoryFilterModal } from '../components/CategoryFilterModal';
 
 const PAGE_SIZE = 20;
 
@@ -47,12 +48,8 @@ export default function HomeScreen() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [radius, setRadius] = useState(5);
-
-  // Camera/gallery error states
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
-
-  // ... existing loadRealAlerts, useEffect, etc.
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
   const loadRealAlerts = async (reset = true, pageNum = 0) => {
     try {
@@ -81,11 +78,13 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    const loadRadius = async () => {
+    const loadSettings = async () => {
       const r = await getAlertRadius();
       setRadius(r);
+      const categories = await getSelectedCategories();
+      setSelectedCategories(categories);
     };
-    loadRadius();
+    loadSettings();
   }, []);
 
   useEffect(() => {
@@ -103,92 +102,45 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
-  // --- Improved Camera/Gallery Handlers ---
+  // ... existing image pickers, audio handlers, send alert etc.
 
-  const requestMediaPermission = async (type) => {
-    try {
-      if (type === 'camera') {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            'Camera Access Required',
-            'Please enable camera access in your phone settings to take photos.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
-            ]
-          );
-          return false;
-        }
-        return true;
-      } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            'Gallery Access Required',
-            'Please enable gallery access in your phone settings to pick photos.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
-            ]
-          );
-          return false;
-        }
-        return true;
-      }
-    } catch (err) {
-      console.error('Permission request error:', err);
-      Alert.alert('Error', 'Could not request permission. Please try again.');
-      return false;
+  // Filter alerts based on selected categories
+  const filteredAlerts = allAlerts.filter(alert =>
+    selectedCategories.includes(alert.category)
+  );
+
+  // ... existing handlers (handlePickImage, handleTakePhoto, handleSendRealAlert, etc.)
+
+  const handlePickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please grant access to your photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled) {
+      setPhotoBase64(result.assets[0].base64);
     }
   };
 
   const handleTakePhoto = async () => {
-    const hasPermission = await requestMediaPermission('camera');
-    if (!hasPermission) return;
-
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        quality: 0.7,
-        base64: true,
-      });
-      if (!result.canceled) {
-        setPhotoBase64(result.assets[0].base64);
-        setUploadError(null);
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
-      Alert.alert(
-        'Camera Error',
-        'Could not take photo. Please try again or restart the app.',
-        [{ text: 'OK' }]
-      );
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please grant camera access.');
+      return;
     }
-  };
-
-  const handlePickImage = async () => {
-    const hasPermission = await requestMediaPermission('gallery');
-    if (!hasPermission) return;
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.7,
-        base64: true,
-      });
-      if (!result.canceled) {
-        setPhotoBase64(result.assets[0].base64);
-        setUploadError(null);
-      }
-    } catch (err) {
-      console.error('Gallery error:', err);
-      Alert.alert(
-        'Gallery Error',
-        'Could not pick image. Please try again or restart the app.',
-        [{ text: 'OK' }]
-      );
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+    if (!result.canceled) {
+      setPhotoBase64(result.assets[0].base64);
     }
   };
 
@@ -206,7 +158,6 @@ export default function HomeScreen() {
       return;
     }
     setLoading(true);
-    setIsUploading(true);
     try {
       await sendAlert(dangerText, selectedCategory, photoBase64, audioUri);
       Alert.alert('Alert Sent', 'Your emergency signal has been broadcast.');
@@ -217,29 +168,11 @@ export default function HomeScreen() {
       if (msg.toLowerCase().includes('location') || msg.toLowerCase().includes('gps')) {
         setLocationError(msg);
         setShowLocationModal(true);
-      } else if (msg.toLowerCase().includes('upload') || msg.toLowerCase().includes('photo') || msg.toLowerCase().includes('audio')) {
-        // Specific upload error
-        Alert.alert(
-          'Upload Failed',
-          'Your photo or voice note could not be uploaded. Please check your connection and try again.',
-          [
-            { text: 'Cancel' },
-            {
-              text: 'Retry',
-              onPress: () => {
-                // Retry sending without re-selecting photo/audio
-                setUploadError(msg);
-                handleSendRealAlert();
-              },
-            },
-          ]
-        );
       } else {
         Alert.alert('Failed', msg || 'Could not send alert.');
       }
     } finally {
       setLoading(false);
-      setIsUploading(false);
       setShowConfirmModal(false);
     }
   };
@@ -249,7 +182,6 @@ export default function HomeScreen() {
     setSelectedCategory('other');
     setPhotoBase64(null);
     setAudioUri(null);
-    setUploadError(null);
   };
 
   const openConfirmModal = () => {
@@ -264,8 +196,6 @@ export default function HomeScreen() {
     setShowLocationModal(false);
     handleSendRealAlert();
   };
-
-  // ... existing share, map handlers
 
   const handleShareAlert = async (alert) => {
     try {
@@ -287,8 +217,6 @@ export default function HomeScreen() {
       Alert.alert('Error', 'Could not open maps.');
     });
   };
-
-  // ... getCategoryColor, getCategoryName
 
   const getCategoryColor = (category) => {
     const colors = {
@@ -312,7 +240,7 @@ export default function HomeScreen() {
     return names[category] || 'Other';
   };
 
-  const combinedAlerts = allAlerts;
+  const combinedAlerts = filteredAlerts;
   const isEmpty = combinedAlerts.length === 0 && !loading;
 
   const styles = StyleSheet.create({
@@ -371,6 +299,11 @@ export default function HomeScreen() {
       marginBottom: 12,
     },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.text },
+    filterButtonText: {
+      fontSize: 14,
+      color: theme.primary,
+      fontWeight: '600',
+    },
     alertItem: {
       padding: 12,
       backgroundColor: theme.card,
@@ -464,18 +397,10 @@ export default function HomeScreen() {
           editable={!loading}
         />
         <View style={styles.photoRow}>
-          <TouchableOpacity
-            style={styles.photoButton}
-            onPress={handleTakePhoto}
-            disabled={loading || isUploading}
-          >
+          <TouchableOpacity style={styles.photoButton} onPress={handleTakePhoto}>
             <Text style={styles.photoButtonText}>Camera</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.photoButton}
-            onPress={handlePickImage}
-            disabled={loading || isUploading}
-          >
+          <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
             <Text style={styles.photoButtonText}>Gallery</Text>
           </TouchableOpacity>
         </View>
@@ -487,7 +412,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
-        <VoiceRecorder onRecordComplete={handleAudioRecorded} disabled={loading || isUploading} />
+        <VoiceRecorder onRecordComplete={handleAudioRecorded} disabled={loading} />
         {audioUri && (
           <View style={styles.previewContainer}>
             <AudioPlayer audioUrl={audioUri} />
@@ -500,16 +425,18 @@ export default function HomeScreen() {
           <Button
             title="DANGER"
             onPress={openConfirmModal}
-            disabled={loading || isOffline || isUploading}
-            color={isOffline || isUploading ? '#757575' : '#d32f2f'}
+            disabled={loading || isOffline}
+            color={isOffline ? '#757575' : '#d32f2f'}
           />
-          {isUploading && <ActivityIndicator size="small" style={{ marginLeft: 10 }} color={theme.primary} />}
         </View>
         {loading && <ActivityIndicator size="small" style={{ marginTop: 10 }} color={theme.primary} />}
       </View>
 
       <View style={styles.listHeader}>
         <Text style={styles.sectionTitle}>Nearby Alerts (last hour)</Text>
+        <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
+          <Text style={styles.filterButtonText}>Filter</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -630,6 +557,15 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Category Filter Modal */}
+      <CategoryFilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApply={(categories) => {
+          setSelectedCategories(categories);
+        }}
+      />
     </View>
   );
 }

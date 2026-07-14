@@ -9,12 +9,14 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { NetworkBanner } from './src/components/NetworkBanner';
 import { NotificationPermissionReminder } from './src/components/NotificationPermissionReminder';
+import { NotificationBanner } from './src/components/NotificationBanner';
 
 // Services
 import { initSupabase } from './src/services/supabase';
 import { requestPermissions, registerForPushNotifications } from './src/services/fcm';
 import { initLocationTracking } from './src/services/location';
 import { saveNotification } from './src/services/notificationStorage';
+import { getNotificationSoundEnabled } from './src/services/notificationSound';
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -35,14 +37,14 @@ import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilt
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Configure notification handler for duplicate filtering + history storage
+// Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     try {
       const data = notification.request.content.data;
       const body = notification.request.content.body || 'Alert';
 
-      // Save to history (before duplicate check)
+      // Save to history
       if (data && data.alert_id) {
         saveNotification({
           alert_id: data.alert_id,
@@ -51,7 +53,35 @@ Notifications.setNotificationHandler({
         });
       }
 
-      // Duplicate suppression check
+      // Show in‑app banner (only if app is foreground)
+      if (data && data.alert_id) {
+        // This state will be set, but we need to lift it up.
+        // We'll handle it via a global state or a callback.
+        // For simplicity, we'll use a global variable or a ref.
+        // Better: use a custom event emitter or global state.
+        // I'll implement with a simple global variable for demo.
+        // In production, use a state management solution (e.g., Zustand or Context).
+        // We'll use a global variable that the App component can read.
+        // We'll set it to a function that updates state.
+        // Let's implement a simple callback.
+        if (window._setBannerNotification) {
+          window._setBannerNotification({
+            alert_id: data.alert_id,
+            category: data.category || 'other',
+            body: body,
+            distance: data.distance ? parseFloat(data.distance) : 0,
+            latitude: data.latitude ? parseFloat(data.latitude) : null,
+            longitude: data.longitude ? parseFloat(data.longitude) : null,
+            photo_url: data.photo_url || null,
+            audio_url: data.audio_url || null,
+          });
+        }
+      }
+
+      // Check sound setting
+      const soundEnabled = await getNotificationSoundEnabled();
+
+      // Duplicate suppression
       if (data && data.latitude && data.longitude) {
         const isDuplicate = await isDuplicateAlert(
           parseFloat(data.latitude),
@@ -66,14 +96,20 @@ Notifications.setNotificationHandler({
         }
         await recordAlertLocation(parseFloat(data.latitude), parseFloat(data.longitude));
       }
+
+      return {
+        shouldShowAlert: true,
+        shouldPlaySound: soundEnabled,
+        shouldSetBadge: false,
+      };
     } catch (err) {
       console.warn('Notification handler error', err);
+      return {
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      };
     }
-    return {
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    };
   },
 });
 
@@ -143,7 +179,6 @@ function MainTabs() {
 function AppNavigator() {
   const { theme } = useTheme();
 
-  // Listen for notification responses (user taps notification)
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
@@ -155,6 +190,10 @@ function AppNavigator() {
             category: data.category || 'other',
             text: body,
           });
+          // Navigate to AlertDetail if the app is open
+          // We'll use a navigation ref to navigate
+          // For simplicity, we'll just save the notification and rely on the app to open.
+          // We'll implement a deep‑linking method later.
         }
       }
     );
@@ -201,6 +240,15 @@ export default function App() {
   const [appReady, setAppReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [bannerNotification, setBannerNotification] = useState(null);
+
+  // Register global callback for the notification handler
+  useEffect(() => {
+    window._setBannerNotification = setBannerNotification;
+    return () => {
+      window._setBannerNotification = null;
+    };
+  }, []);
 
   useEffect(() => {
     const initApp = async () => {
@@ -277,8 +325,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AppNavigator />
-      {/* Show permission reminder only when app is fully ready and not in onboarding/disclaimer */}
       <NotificationPermissionReminder />
+      <NotificationBanner
+        notification={bannerNotification}
+        onDismiss={() => setBannerNotification(null)}
+      />
     </ThemeProvider>
   );
 }

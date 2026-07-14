@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { getAlertRadius, setAlertRadius } from '../services/radiusStorage';
 import { getEmergencyNumber, setEmergencyNumber } from '../services/emergencyNumber';
+import { getNotificationSoundEnabled, setNotificationSoundEnabled } from '../services/notificationSound';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import packageJson from '../../package.json';
@@ -28,6 +29,7 @@ export default function SettingsScreen() {
   const [emergencyInput, setEmergencyInput] = useState('');
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -36,6 +38,8 @@ export default function SettingsScreen() {
       const num = await getEmergencyNumber();
       setEmergencyNumberState(num);
       setEmergencyInput(num);
+      const sound = await getNotificationSoundEnabled();
+      setSoundEnabled(sound);
       const stored = await AsyncStorage.getItem(NOTIFICATION_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -49,6 +53,11 @@ export default function SettingsScreen() {
     const rounded = Math.round(value * 10) / 10;
     setRadius(rounded);
     setAlertRadius(rounded);
+  };
+
+  const handleSoundToggle = (value) => {
+    setSoundEnabled(value);
+    setNotificationSoundEnabled(value);
   };
 
   const handleSaveEmergencyNumber = async () => {
@@ -200,15 +209,6 @@ export default function SettingsScreen() {
       fontWeight: '600',
       fontSize: 14,
     },
-    legalButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 6,
-    },
-    legalButtonText: {
-      color: theme.primary,
-      fontSize: 14,
-    },
     versionText: {
       fontSize: 14,
       color: theme.textSecondary,
@@ -322,6 +322,19 @@ export default function SettingsScreen() {
                 <Text style={styles.sliderValue}>{radius.toFixed(1)} km</Text>
               </View>
             </View>
+            {/* Sound Toggle */}
+            <View style={styles.row}>
+              <View>
+                <Text style={styles.label}>Notification Sound</Text>
+                <Text style={styles.subLabel}>Play sound when alerts arrive</Text>
+              </View>
+              <Switch
+                value={soundEnabled}
+                onValueChange={handleSoundToggle}
+                trackColor={{ false: '#ccc', true: theme.primary }}
+                thumbColor={soundEnabled ? '#fff' : '#fff'}
+              />
+            </View>
           </View>
         </View>
 
@@ -402,7 +415,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* About Section – App Version Display */}
+        {/* About Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.card}>

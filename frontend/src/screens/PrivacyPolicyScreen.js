@@ -49,7 +49,7 @@ export default function PrivacyPolicyScreen() {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Privacy Policy</Text>
-      <Text style={styles.lastUpdated}>Last updated: June 24, 2026</Text>
+      <Text style={styles.lastUpdated}>Last updated: July 20, 2026</Text>
 
       <Text style={styles.section}>1. No Login, No Registration</Text>
       <Text style={styles.text}>
@@ -58,24 +58,26 @@ export default function PrivacyPolicyScreen() {
 
       <Text style={styles.section}>2. Information We Collect</Text>
       <Text style={styles.text}>
-        We collect and temporarily store the following information solely to provide emergency broadcast functionality:
+        We collect and temporarily store the following information solely to provide emergency response functionality:
       </Text>
       <Text style={styles.bullet}>• Device UUID (randomly generated, not linked to any personal identifier)</Text>
-      <Text style={styles.bullet}>• Your approximate location (GPS coordinates) – only used to show nearby alerts and send broadcasts within 5km</Text>
-      <Text style={styles.bullet}>• FCM push notification token – used to deliver emergency alerts</Text>
-      <Text style={styles.bullet}>• Alert messages and optional photos you voluntarily submit – stored for up to 1 hour</Text>
+      <Text style={styles.bullet}>• Your approximate location (GPS coordinates) – used only to find nearby guardians and send your location to them</Text>
+      <Text style={styles.bullet}>• FCM push notification token – used to deliver alerts to guardians</Text>
+      <Text style={styles.bullet}>• Alert messages, photos, and voice notes you voluntarily submit – stored for up to 1 hour</Text>
+      <Text style={styles.bullet}>• If you apply to be a guardian, additional verification data (NIN, BVN, certifications) is stored securely and used only for vetting</Text>
 
       <Text style={styles.section}>3. How We Use Your Information</Text>
       <Text style={styles.text}>
-        • Display nearby emergency alerts within 5km of your location{'\n'}
-        • Send push notifications to devices within 5km when you post an alert{'\n'}
+        • Find the 5 closest verified guardians within 500 m of your location when you trigger an SOS{'\n'}
+        • Send your location and alert details to those guardians{'\n'}
+        • Notify your trusted contacts (family/friends) via SMS (with your consent){'\n'}
         • Allow you to edit or delete your own alerts within 1 hour{'\n'}
-        • Enable emergency contacts to be stored locally on your device only (never uploaded to any server)
+        • Enable guardians to respond and update their status (en route, arrived, resolved)
       </Text>
 
       <Text style={styles.section}>4. Data Retention</Text>
       <Text style={styles.text}>
-        Alert data is automatically deleted from our servers after 1 hour. Your device UUID and FCM token are stored only while you have the app installed. Photos uploaded to alerts are also deleted after 1 hour. You can request complete deletion by uninstalling the app – all locally stored contacts will be removed from your device.
+        Alert data is automatically deleted from our servers after 1 hour. Your device UUID and FCM token are stored only while you have the app installed. Photos and voice notes are also deleted after 1 hour. Guardian application data is retained for vetting purposes and can be deleted upon request.
       </Text>
 
       <Text style={styles.section}>5. No Government Backdoor</Text>
@@ -100,7 +102,7 @@ export default function PrivacyPolicyScreen() {
 
       <Text style={styles.section}>9. Contact Us</Text>
       <Text style={styles.text}>
-        If you have questions about this Privacy Policy, please contact us at: privacy@zenca.com
+        If you have questions about this Privacy Policy, please contact us at: zenca963@gmail.com
       </Text>
     </ScrollView>
   );

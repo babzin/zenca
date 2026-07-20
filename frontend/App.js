@@ -30,6 +30,8 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import AlertDetailScreen from './src/screens/AlertDetailScreen';
 import NotificationHistoryScreen from './src/screens/NotificationHistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import GuardianApplicationForm from './src/screens/GuardianApplicationForm';
+import GuardianDashboard from './src/screens/GuardianDashboard';
 
 // Utils
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
@@ -54,28 +56,17 @@ Notifications.setNotificationHandler({
       }
 
       // Show in‑app banner (only if app is foreground)
-      if (data && data.alert_id) {
-        // This state will be set, but we need to lift it up.
-        // We'll handle it via a global state or a callback.
-        // For simplicity, we'll use a global variable or a ref.
-        // Better: use a custom event emitter or global state.
-        // I'll implement with a simple global variable for demo.
-        // In production, use a state management solution (e.g., Zustand or Context).
-        // We'll use a global variable that the App component can read.
-        // We'll set it to a function that updates state.
-        // Let's implement a simple callback.
-        if (window._setBannerNotification) {
-          window._setBannerNotification({
-            alert_id: data.alert_id,
-            category: data.category || 'other',
-            body: body,
-            distance: data.distance ? parseFloat(data.distance) : 0,
-            latitude: data.latitude ? parseFloat(data.latitude) : null,
-            longitude: data.longitude ? parseFloat(data.longitude) : null,
-            photo_url: data.photo_url || null,
-            audio_url: data.audio_url || null,
-          });
-        }
+      if (data && data.alert_id && typeof window !== 'undefined' && window._setBannerNotification) {
+        window._setBannerNotification({
+          alert_id: data.alert_id,
+          category: data.category || 'other',
+          body: body,
+          distance: data.distance ? parseFloat(data.distance) : 0,
+          latitude: data.latitude ? parseFloat(data.latitude) : null,
+          longitude: data.longitude ? parseFloat(data.longitude) : null,
+          photo_url: data.photo_url || null,
+          audio_url: data.audio_url || null,
+        });
       }
 
       // Check sound setting
@@ -190,10 +181,6 @@ function AppNavigator() {
             category: data.category || 'other',
             text: body,
           });
-          // Navigate to AlertDetail if the app is open
-          // We'll use a navigation ref to navigate
-          // For simplicity, we'll just save the notification and rely on the app to open.
-          // We'll implement a deep‑linking method later.
         }
       }
     );
@@ -228,6 +215,8 @@ function AppNavigator() {
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
           <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
           <Stack.Screen name="AlertDetail" component={AlertDetailScreen} options={{ title: 'Alert Details' }} />
+          <Stack.Screen name="GuardianApplication" component={GuardianApplicationForm} options={{ title: 'Apply as Guardian' }} />
+          <Stack.Screen name="GuardianDashboard" component={GuardianDashboard} options={{ title: 'Guardian Dashboard' }} />
         </Stack.Navigator>
       </NavigationContainer>
       <NetworkBanner />
@@ -244,10 +233,12 @@ export default function App() {
 
   // Register global callback for the notification handler
   useEffect(() => {
-    window._setBannerNotification = setBannerNotification;
-    return () => {
-      window._setBannerNotification = null;
-    };
+    if (typeof window !== 'undefined') {
+      window._setBannerNotification = setBannerNotification;
+      return () => {
+        window._setBannerNotification = null;
+      };
+    }
   }, []);
 
   useEffect(() => {

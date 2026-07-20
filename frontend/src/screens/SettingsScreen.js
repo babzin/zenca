@@ -363,6 +363,27 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Guardian Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Guardian</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={[styles.row, styles.rowLast]}
+              onPress={() => navigation.navigate('GuardianApplication')}
+            >
+              <Text style={styles.label}>Apply to be a Guardian</Text>
+              <Text style={styles.value}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.row, styles.rowLast]}
+              onPress={() => navigation.navigate('GuardianDashboard')}
+            >
+              <Text style={styles.label}>Guardian Dashboard</Text>
+              <Text style={styles.value}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Legal Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>

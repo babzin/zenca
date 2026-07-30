@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, View, ActivityIndicator } from 'react-native';
+import { Alert, View, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { NetworkBanner } from './src/components/NetworkBanner';
@@ -32,12 +32,28 @@ import NotificationHistoryScreen from './src/screens/NotificationHistoryScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import GuardianApplicationForm from './src/screens/GuardianApplicationForm';
 import GuardianDashboard from './src/screens/GuardianDashboard';
+import TrustedContactsScreen from './src/screens/TrustedContactsScreen';
+
+// ========== ADMIN SCREENS ==========
+import AdminLoginScreen from './src/screens/AdminLoginScreen';
+import AdminPanelScreen from './src/screens/AdminPanelScreen';
+import AdminApplicationsScreen from './src/screens/AdminApplicationsScreen';
+import AdminApplicationDetailScreen from './src/screens/AdminApplicationDetailScreen';
+import AdminGuardiansScreen from './src/screens/AdminGuardiansScreen';
+import AdminAnalyticsScreen from './src/screens/AdminAnalyticsScreen';
+import AdminInvitesScreen from './src/screens/AdminInvitesScreen';
+import AdminForgotPasswordScreen from './src/screens/AdminForgotPasswordScreen';
+import AdminResetPasswordScreen from './src/screens/AdminResetPasswordScreen';
+import AdminSignupScreen from './src/screens/AdminSignupScreen';
 
 // Utils
 import { isDuplicateAlert, recordAlertLocation } from './src/utils/duplicateFilter';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+// Navigation ref for deep linking
+export const navigationRef = React.createRef();
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -170,6 +186,7 @@ function MainTabs() {
 function AppNavigator() {
   const { theme } = useTheme();
 
+  // Listen for notification responses (user taps notification)
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
@@ -187,19 +204,37 @@ function AppNavigator() {
     return () => subscription.remove();
   }, []);
 
+  // Handle deep linking (for password reset)
+  useEffect(() => {
+    const handleDeepLink = (event) => {
+      const url = event.url;
+      if (url && url.includes('admin/reset-password')) {
+        // Extract token from URL
+        const token = url.split('token=')[1] || '';
+        // Navigate to reset password screen
+        if (navigationRef.current) {
+          navigationRef.current.navigate('AdminResetPassword', { token });
+        }
+      }
+    };
+    // Listen to initial URL
+    Linking.getInitialURL().then((url) => {
+      if (url && url.includes('admin/reset-password')) {
+        const token = url.split('token=')[1] || '';
+        setTimeout(() => {
+          if (navigationRef.current) {
+            navigationRef.current.navigate('AdminResetPassword', { token });
+          }
+        }, 500);
+      }
+    });
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
-      <NavigationContainer
-        theme={{
-          colors: {
-            background: theme.background,
-            card: theme.card,
-            text: theme.text,
-            border: theme.border,
-            primary: theme.primary,
-          },
-        }}
-      >
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
             headerStyle: {
@@ -211,12 +246,102 @@ function AppNavigator() {
             headerTintColor: theme.primary,
           }}
         >
-          <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
-          <Stack.Screen name="Terms" component={TermsScreen} options={{ title: 'Terms & Conditions' }} />
-          <Stack.Screen name="AlertDetail" component={AlertDetailScreen} options={{ title: 'Alert Details' }} />
-          <Stack.Screen name="GuardianApplication" component={GuardianApplicationForm} options={{ title: 'Apply as Guardian' }} />
-          <Stack.Screen name="GuardianDashboard" component={GuardianDashboard} options={{ title: 'Guardian Dashboard' }} />
+          {/* Main tabs */}
+          <Stack.Screen
+            name="Main"
+            component={MainTabs}
+            options={{ headerShown: false }}
+          />
+
+          {/* Legal screens */}
+          <Stack.Screen
+            name="PrivacyPolicy"
+            component={PrivacyPolicyScreen}
+            options={{ title: 'Privacy Policy' }}
+          />
+          <Stack.Screen
+            name="Terms"
+            component={TermsScreen}
+            options={{ title: 'Terms & Conditions' }}
+          />
+
+          {/* Alert detail */}
+          <Stack.Screen
+            name="AlertDetail"
+            component={AlertDetailScreen}
+            options={{ title: 'Alert Details' }}
+          />
+
+          {/* Guardian screens */}
+          <Stack.Screen
+            name="GuardianApplication"
+            component={GuardianApplicationForm}
+            options={{ title: 'Apply as Guardian' }}
+          />
+          <Stack.Screen
+            name="GuardianDashboard"
+            component={GuardianDashboard}
+            options={{ title: 'Guardian Dashboard' }}
+          />
+
+          {/* Trusted contacts */}
+          <Stack.Screen
+            name="TrustedContacts"
+            component={TrustedContactsScreen}
+            options={{ title: 'Trusted Contacts' }}
+          />
+
+          {/* ========== ADMIN SCREENS ========== */}
+          <Stack.Screen
+            name="AdminLogin"
+            component={AdminLoginScreen}
+            options={{ title: 'Admin Login' }}
+          />
+          <Stack.Screen
+            name="AdminForgotPassword"
+            component={AdminForgotPasswordScreen}
+            options={{ title: 'Forgot Password' }}
+          />
+          <Stack.Screen
+            name="AdminResetPassword"
+            component={AdminResetPasswordScreen}
+            options={{ title: 'Reset Password' }}
+          />
+          <Stack.Screen
+            name="AdminSignup"
+            component={AdminSignupScreen}
+            options={{ title: 'Create Account' }}
+          />
+          <Stack.Screen
+            name="AdminPanel"
+            component={AdminPanelScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AdminApplications"
+            component={AdminApplicationsScreen}
+            options={{ title: 'Applications' }}
+          />
+          <Stack.Screen
+            name="AdminApplicationDetail"
+            component={AdminApplicationDetailScreen}
+            options={{ title: 'Application Details' }}
+          />
+          <Stack.Screen
+            name="AdminGuardians"
+            component={AdminGuardiansScreen}
+            options={{ title: 'Guardians' }}
+          />
+          <Stack.Screen
+            name="AdminAnalytics"
+            component={AdminAnalyticsScreen}
+            options={{ title: 'Analytics' }}
+          />
+          <Stack.Screen
+            name="AdminInvites"
+            component={AdminInvitesScreen}
+            options={{ title: 'Invites' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
       <NetworkBanner />
@@ -231,7 +356,7 @@ export default function App() {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [bannerNotification, setBannerNotification] = useState(null);
 
-  // Register global callback for the notification handler
+  // Register global callback for the notification banner
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window._setBannerNotification = setBannerNotification;

@@ -18,6 +18,7 @@ import { getNotificationSoundEnabled, setNotificationSoundEnabled } from '../ser
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import packageJson from '../../package.json';
+import { isAdmin, adminSignOut } from '../services/admin';
 
 const NOTIFICATION_STORAGE_KEY = '@zenca_notification_history';
 
@@ -30,6 +31,7 @@ export default function SettingsScreen() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -45,6 +47,9 @@ export default function SettingsScreen() {
         const parsed = JSON.parse(stored);
         setNotificationCount(parsed.length);
       }
+      // Check if user is admin
+      const admin = await isAdmin();
+      setIsUserAdmin(admin);
     };
     loadSettings();
   }, []);
@@ -108,6 +113,37 @@ export default function SettingsScreen() {
             } catch (err) {
               Alert.alert('Error', 'Could not clear all data.');
             }
+          },
+        },
+      ]
+    );
+  };
+
+  // Navigate to Admin Panel
+  const handleAdminPanel = () => {
+    if (isUserAdmin) {
+      // If already logged in as admin, go directly to panel
+      navigation.navigate('AdminPanel');
+    } else {
+      // Go to admin login screen
+      navigation.navigate('AdminLogin');
+    }
+  };
+
+  // Logout from admin (if admin is logged in)
+  const handleAdminLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to log out from the admin panel?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await adminSignOut();
+            setIsUserAdmin(false);
+            Alert.alert('Logged out', 'You have been logged out from the admin panel.');
           },
         },
       ]
@@ -271,6 +307,23 @@ export default function SettingsScreen() {
     modalCancelText: {
       color: theme.text,
     },
+    adminRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    adminLabel: {
+      fontSize: 16,
+      color: theme.text,
+      fontWeight: '500',
+    },
+    adminAction: {
+      color: theme.primary,
+      fontWeight: '600',
+    },
   });
 
   return (
@@ -359,6 +412,30 @@ export default function SettingsScreen() {
                   <Text style={styles.actionButtonText}>Edit</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Admin Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Admin</Text>
+          <View style={styles.card}>
+            <View style={[styles.adminRow, styles.rowLast]}>
+              <Text style={styles.adminLabel}>Admin Panel</Text>
+              {isUserAdmin ? (
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity onPress={handleAdminPanel}>
+                    <Text style={styles.adminAction}>Open</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleAdminLogout}>
+                    <Text style={[styles.adminAction, { color: '#d32f2f' }]}>Logout</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={handleAdminPanel}>
+                  <Text style={styles.adminAction}>Login</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>

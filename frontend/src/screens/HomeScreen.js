@@ -25,6 +25,9 @@ import { AudioPlayer } from '../components/AudioPlayer';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
 import { CategoryFilterModal } from '../components/CategoryFilterModal';
+import { getTrustedContacts } from '../services/trustedContacts';
+import { getEmergencyNumber } from '../services/emergencyNumber';
+import { getCurrentPosition } from '../services/location';
 
 const PAGE_SIZE = 20;
 
@@ -50,7 +53,23 @@ export default function HomeScreen() {
   const [radius, setRadius] = useState(5);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [alertStatus, setAlertStatus] = useState(null);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [showOfflineSOSModal, setShowOfflineSOSModal] = useState(false);
 
+  // Load settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      const r = await getAlertRadius();
+      setRadius(r);
+      const categories = await getSelectedCategories();
+      setSelectedCategories(categories);
+    };
+    loadSettings();
+  }, []);
+
+  // Load real alerts
   const loadRealAlerts = async (reset = true, pageNum = 0) => {
     try {
       if (reset) {
@@ -78,16 +97,6 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    const loadSettings = async () => {
-      const r = await getAlertRadius();
-      setRadius(r);
-      const categories = await getSelectedCategories();
-      setSelectedCategories(categories);
-    };
-    loadSettings();
-  }, []);
-
-  useEffect(() => {
     loadRealAlerts(true, 0);
     const interval = setInterval(() => {
       loadRealAlerts(true, 0);
@@ -102,15 +111,7 @@ export default function HomeScreen() {
     loadRealAlerts(false, nextPage);
   };
 
-  // ... existing image pickers, audio handlers, send alert etc.
-
-  // Filter alerts based on selected categories
-  const filteredAlerts = allAlerts.filter(alert =>
-    selectedCategories.includes(alert.category)
-  );
-
-  // ... existing handlers (handlePickImage, handleTakePhoto, handleSendRealAlert, etc.)
-
+  // Image pickers
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -148,32 +149,130 @@ export default function HomeScreen() {
     setAudioUri(uri);
   };
 
+  // --- Offline SOS Fallback (SMS) ---
+  const openOfflineSOS = async () => {
+    setShowOfflineSOSModal(true);
+  };
+
+  const handleOfflineSOSConfirm = async () => {
+    setShowOfflineSOSModal(false);
+    setLoading(true);
+
+    try {
+      let location = null;
+      try {
+        const pos = await getCurrentPosition(2);
+        location = pos;
+      } catch (err) {
+        console.warn('Location unavailable for SMS', err);
+      }
+
+      const contacts = await getTrustedContacts();
+      const emergencyNumber = await getEmergencyNumber();
+
+      let recipients = [];
+      if (contacts && contacts.length > 0) {
+        recipients = contacts.map(c => c.phone);
+      }
+      if (emergencyNumber && !recipients.includes(emergencyNumber)) {
+        recipients.push(emergencyNumber);
+      }
+
+      if (recipients.length === 0) {
+        Alert.alert('No Contacts', 'Please add trusted contacts in settings, or call 112 directly.');
+        setLoading(false);
+        return;
+      }
+
+      const categoryName = selectedCategory.toUpperCase();
+      let message = `ZENCA SOS ALERT\nType: ${categoryName}\nDescription: ${dangerText || 'No details'}`;
+      if (location) {
+        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`;
+        message += `\nLocation: ${mapsLink}`;
+      } else {
+        message += '\nLocation: Unknown (please call to confirm)';
+      }
+
+      const recipientString = recipients.join(';');
+      const smsUrl = `sms:${recipientString}?body=${encodeURIComponent(message)}`;
+      Linking.openURL(smsUrl).catch(() => {
+        Alert.alert('Error', 'Could not open SMS app. Please send manually.');
+      });
+    } catch (err) {
+      Alert.alert('Error', 'Could not prepare SMS. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- WhatsApp Fallback (Online) ---
+  const handleWhatsAppShare = async () => {
+    try {
+      // Get location
+      let location = null;
+      try {
+        const pos = await getCurrentPosition(2);
+        location = pos;
+      } catch (err) {
+        console.warn('Location unavailable for WhatsApp', err);
+      }
+
+      const categoryName = selectedCategory.toUpperCase();
+      let message = `🚨 ZENCA SOS ALERT\n\nType: ${categoryName}\nDescription: ${dangerText || 'No details provided'}`;
+      if (location) {
+        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`;
+        message += `\nLocation: ${mapsLink}`;
+      } else {
+        message += '\nLocation: Unknown (please call to confirm)';
+      }
+
+      // Use the share sheet – the user can choose WhatsApp
+      const result = await Share.share({
+        message: message,
+        title: `Zenca SOS - ${categoryName}`,
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log('Shared via WhatsApp (or other)');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not share via WhatsApp. Please try again.');
+    }
+  };
+
+  // --- Normal Alert Flow (Guardian) ---
   const handleSendRealAlert = async () => {
     if (isOffline) {
-      Alert.alert('No Internet', 'Please connect to the internet to send alerts.');
+      openOfflineSOS();
       return;
     }
     if (dangerText.length > 140) {
       Alert.alert('Too long', 'Maximum 140 characters.');
       return;
     }
+
     setLoading(true);
+    setShowConfirmModal(false);
+    setAlertStatus('searching');
+    setStatusMessage('Searching for nearby guardians...');
+    setShowStatusModal(true);
+
     try {
-      await sendAlert(dangerText, selectedCategory, photoBase64, audioUri);
-      Alert.alert('Alert Sent', 'Your emergency signal has been broadcast.');
-      resetForm();
-      setTimeout(() => loadRealAlerts(true, 0), 2000);
+      const alertId = await sendAlert(dangerText, selectedCategory, photoBase64, audioUri);
+      setAlertStatus('assigned');
+      setStatusMessage('Guardian assigned! They are on their way.');
+
+      setTimeout(() => {
+        setShowStatusModal(false);
+        navigation.navigate('AlertDetail', { alertId });
+      }, 3000);
     } catch (err) {
-      const msg = err.message || '';
-      if (msg.toLowerCase().includes('location') || msg.toLowerCase().includes('gps')) {
-        setLocationError(msg);
-        setShowLocationModal(true);
-      } else {
-        Alert.alert('Failed', msg || 'Could not send alert.');
-      }
+      setShowStatusModal(false);
+      Alert.alert('Failed', err.message || 'Could not send alert.');
     } finally {
       setLoading(false);
-      setShowConfirmModal(false);
+      resetForm();
+      setTimeout(() => loadRealAlerts(true, 0), 2000);
     }
   };
 
@@ -192,11 +291,7 @@ export default function HomeScreen() {
     handleSendRealAlert();
   };
 
-  const retryWithLocation = () => {
-    setShowLocationModal(false);
-    handleSendRealAlert();
-  };
-
+  // Share, map, etc.
   const handleShareAlert = async (alert) => {
     try {
       const categoryName = alert.category ? alert.category.toUpperCase() : 'ALERT';
@@ -239,6 +334,10 @@ export default function HomeScreen() {
     };
     return names[category] || 'Other';
   };
+
+  const filteredAlerts = allAlerts.filter(alert =>
+    selectedCategories.includes(alert.category)
+  );
 
   const combinedAlerts = filteredAlerts;
   const isEmpty = combinedAlerts.length === 0 && !loading;
@@ -289,8 +388,34 @@ export default function HomeScreen() {
     removePhotoText: { color: theme.primary, fontSize: 12 },
     buttonRow: {
       flexDirection: 'row',
-      justifyContent: 'flex-start',
+      justifyContent: 'space-between',
       marginBottom: 10,
+    },
+    whatsappButton: {
+      backgroundColor: '#25D366',
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      alignItems: 'center',
+      flex: 0.48,
+    },
+    whatsappButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
+    dangerButton: {
+      backgroundColor: '#d32f2f',
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      alignItems: 'center',
+      flex: 0.48,
+    },
+    dangerButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: 14,
     },
     listHeader: {
       flexDirection: 'row',
@@ -381,6 +506,8 @@ export default function HomeScreen() {
     cancelButtonText: { color: theme.text, fontWeight: '600' },
     confirmButtonText: { color: '#fff', fontWeight: 'bold' },
     retryButtonText: { color: '#fff', fontWeight: 'bold' },
+    statusModalTitle: { fontSize: 22, fontWeight: 'bold', color: theme.primary, marginBottom: 12 },
+    statusMessage: { fontSize: 16, color: theme.text, textAlign: 'center', marginBottom: 16 },
   });
 
   return (
@@ -422,12 +549,22 @@ export default function HomeScreen() {
           </View>
         )}
         <View style={styles.buttonRow}>
-          <Button
-            title="DANGER"
-            onPress={openConfirmModal}
-            disabled={loading || isOffline}
-            color={isOffline ? '#757575' : '#d32f2f'}
-          />
+          <TouchableOpacity
+            style={[styles.dangerButton, (loading || isOffline) && { opacity: 0.5 }]}
+            onPress={isOffline ? openOfflineSOS : openConfirmModal}
+            disabled={loading}
+          >
+            <Text style={styles.dangerButtonText}>{isOffline ? 'SOS (SMS)' : 'DANGER'}</Text>
+          </TouchableOpacity>
+          {!isOffline && (
+            <TouchableOpacity
+              style={[styles.whatsappButton, loading && { opacity: 0.5 }]}
+              onPress={handleWhatsAppShare}
+              disabled={loading}
+            >
+              <Text style={styles.whatsappButtonText}>WhatsApp SOS</Text>
+            </TouchableOpacity>
+          )}
         </View>
         {loading && <ActivityIndicator size="small" style={{ marginTop: 10 }} color={theme.primary} />}
       </View>
@@ -445,7 +582,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('AlertDetail', { alert: item })}
+            onPress={() => navigation.navigate('AlertDetail', { alertId: item.id })}
           >
             <View
               style={[
@@ -503,26 +640,40 @@ export default function HomeScreen() {
         }
       />
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal (Online Guardian) */}
       <Modal visible={showConfirmModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Confirm Alert</Text>
             <Text style={styles.modalText}>
-              Are you absolutely sure? This will notify everyone within {radius} km.
+              Are you absolutely sure? This will notify nearby guardians and your trusted contacts.
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowConfirmModal(false)}
-              >
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowConfirmModal(false)}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleConfirmSend}
-              >
+              <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={handleConfirmSend}>
                 <Text style={styles.confirmButtonText}>Yes, Send</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Offline SOS Modal (SMS) */}
+      <Modal visible={showOfflineSOSModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={[styles.modalTitle, { color: '#757575' }]}>Send SOS via SMS</Text>
+            <Text style={styles.modalText}>
+              No internet connection. You can send an SOS via SMS to your trusted contacts and emergency services. Your carrier may charge for SMS.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowOfflineSOSModal(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.confirmButton]} onPress={handleOfflineSOSConfirm}>
+                <Text style={styles.confirmButtonText}>Send SMS</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -566,6 +717,20 @@ export default function HomeScreen() {
           setSelectedCategories(categories);
         }}
       />
+
+      {/* Status Modal (Guardian Search) */}
+      <Modal visible={showStatusModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.statusModalTitle}>
+              {alertStatus === 'searching' ? '🔍 Searching for Guardians' :
+               alertStatus === 'assigned' ? '✅ Guardian Assigned' : ''}
+            </Text>
+            <Text style={styles.statusMessage}>{statusMessage}</Text>
+            <ActivityIndicator size="large" color={theme.primary} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

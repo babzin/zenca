@@ -40,6 +40,7 @@ import AdminSignupScreen from '../screens/AdminSignupScreen';
 import AdminAlertFeedScreen from '../screens/AdminAlertFeedScreen';
 import AdminGuardianPerformanceScreen from '../screens/AdminGuardianPerformanceScreen';
 import AdminGuardianDetailScreen from '../screens/AdminGuardianDetailScreen';
+import AdminHeatmapScreen from '../screens/AdminHeatmapScreen'; // ✅ NEW
 
 const Drawer = createDrawerNavigator();
 const Tab = createBottomTabNavigator();
@@ -189,6 +190,12 @@ function AdminStack() {
         component={AdminGuardianDetailScreen}
         options={{ title: 'Guardian Details' }}
       />
+      {/* ✅ NEW: SOS Heatmap Screen */}
+      <Stack.Screen
+        name="AdminHeatmap"
+        component={AdminHeatmapScreen}
+        options={{ title: 'SOS Heatmap' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -312,8 +319,6 @@ function CustomDrawerContent({ navigation, state, descriptors, ...props }) {
       <TouchableOpacity
         style={[styles.drawerItem]}
         onPress={() => {
-          // Logout logic? We'll handle logout inside AdminPanel.
-          // For now, just close drawer.
           navigation.closeDrawer();
         }}
       >

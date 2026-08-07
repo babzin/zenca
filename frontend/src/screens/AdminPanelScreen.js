@@ -2,150 +2,282 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
+  ScrollView,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
-import { getDashboardStats, getRecentActivity, getAdminRole, adminSignOut } from '../services/admin';
+import { supabase } from '../services/supabase';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
-export default function AdminPanelScreen() {
+export default function AdminPanelScreen({ navigation }) {
   const { theme } = useTheme();
-  const navigation = useNavigation();
-  const [stats, setStats] = useState(null);
-  const [recent, setRecent] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [role, setRole] = useState('');
+  const [adminData, setAdminData] = useState({
+    totalGuardians: 0,
+    pendingApplications: 0,
+    activeGuardians: 0,
+    avgResponseTime: '0m',
+  });
+  const [adminRole, setAdminRole] = useState('loading');
+  const [adminEmail, setAdminEmail] = useState('');
 
-  const loadData = async () => {
-    const statsData = await getDashboardStats();
-    setStats(statsData);
-    const recentData = await getRecentActivity();
-    setRecent(recentData);
-    const userRole = await getAdminRole();
-    setRole(userRole || '');
+  const loadDashboardData = async () => {
+    try {
+      // Get user info
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setAdminEmail(user.email);
+        setAdminRole(user.user_metadata?.role || 'read_only');
+      }
+
+      // Count totals
+      const { count: totalGuardians } = await supabase
+        .from('guardians')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: pendingApplications } = await supabase
+        .from('guardian_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+
+      const { count: activeGuardians } = await supabase
+        .from('guardians')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_available', true)
+        .eq('is_verified', true);
+
+      // Calculate average response time
+      const { data: alerts } = await supabase
+        .from('guardian_alerts')
+        .select('accepted_at, created_at')
+        .eq('status', 'completed')
+        .limit(100);
+
+      let avgTime = '0m';
+      if (alerts && alerts.length > 0) {
+        const totalMs = alerts.reduce((acc, a) => {
+          return acc + (new Date(a.accepted_at) - new Date(a.created_at));
+        }, 0);
+        const avgMs = totalMs / alerts.length;
+        const avgMinutes = Math.round(avgMs / 60000);
+        avgTime = avgMinutes + 'm';
+      }
+
+      setAdminData({
+        totalGuardians: totalGuardians || 0,
+        pendingApplications: pendingApplications || 0,
+        activeGuardians: activeGuardians || 0,
+        avgResponseTime: avgTime,
+      });
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
-    loadData();
+    loadDashboardData();
   }, []);
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    loadDashboardData();
   };
 
   const handleLogout = async () => {
-    await adminSignOut();
-    navigation.navigate('Main');
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.auth.signOut();
+            navigation.replace('AdminLogin');
+          },
+        },
+      ]
+    );
   };
+
+  const isReadOnly = adminRole === 'read_only';
+  const menuItems = [
+    {
+      id: 'dashboard',
+      title: 'Dashboard',
+      icon: 'grid-outline',
+      screen: 'AdminDashboard',
+      alwaysShow: true,
+    },
+    {
+      id: 'applications',
+      title: 'Applications',
+      icon: 'people-outline',
+      screen: 'AdminApplications',
+      alwaysShow: true,
+    },
+    {
+      id: 'guardians',
+      title: 'Guardians',
+      icon: 'shield-checkmark-outline',
+      screen: 'AdminGuardians',
+      alwaysShow: true,
+    },
+    {
+      id: 'analytics',
+      title: 'Analytics',
+      icon: 'bar-chart-outline',
+      screen: 'AdminAnalytics',
+      alwaysShow: true,
+    },
+    {
+      id: 'heatmap',
+      title: 'SOS Heatmap',
+      icon: 'map-outline',
+      screen: 'AdminHeatmap',
+      alwaysShow: true,
+    },
+    {
+      id: 'invites',
+      title: 'Invites',
+      icon: 'mail-open-outline',
+      screen: 'AdminInvites',
+      adminOnly: true,
+    },
+    {
+      id: 'logs',
+      title: 'Audit Logs',
+      icon: 'document-text-outline',
+      screen: 'AdminLogs',
+      adminOnly: true,
+    },
+  ];
+
+  const filteredMenu = menuItems.filter(item => {
+    if (item.adminOnly && isReadOnly) return false;
+    return item.alwaysShow || !isReadOnly;
+  });
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.background,
-      padding: 16,
     },
     header: {
+      padding: 20,
+      paddingTop: 40,
+      backgroundColor: theme.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    headerTop: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
     },
-    title: {
+    headerTitle: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: theme.text,
+      color: theme.primary,
     },
-    roleBadge: {
+    adminInfo: {
+      marginTop: 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    adminEmail: {
       fontSize: 14,
       color: theme.textSecondary,
-      backgroundColor: theme.inputBackground,
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: 12,
     },
-    logoutBtn: {
+    adminRole: {
+      fontSize: 12,
       color: theme.primary,
       fontWeight: '600',
-    },
-    statsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'space-between',
-      marginBottom: 16,
-    },
-    statCard: {
-      backgroundColor: theme.card,
+      backgroundColor: theme.primaryLight || '#fef2f2',
+      paddingHorizontal: 10,
+      paddingVertical: 2,
       borderRadius: 12,
-      padding: 16,
-      width: '48%',
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
     },
-    statLabel: {
-      fontSize: 14,
-      color: theme.textSecondary,
+    logoutButton: {
+      paddingVertical: 4,
+      paddingHorizontal: 12,
+      backgroundColor: '#fee2e2',
+      borderRadius: 6,
+    },
+    logoutText: {
+      color: '#d32f2f',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: 16,
+      backgroundColor: theme.card,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    statItem: {
+      alignItems: 'center',
     },
     statValue: {
-      fontSize: 24,
+      fontSize: 20,
       fontWeight: 'bold',
-      color: theme.text,
-      marginTop: 4,
+      color: theme.primary,
     },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.text,
-      marginVertical: 12,
+    statLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginTop: 2,
     },
     menuGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
+      padding: 12,
       justifyContent: 'space-between',
     },
     menuItem: {
+      width: '30%',
+      aspectRatio: 1,
       backgroundColor: theme.card,
       borderRadius: 12,
-      padding: 16,
-      width: '48%',
+      padding: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
       marginBottom: 12,
       borderWidth: 1,
       borderColor: theme.border,
-      alignItems: 'center',
     },
     menuIcon: {
-      fontSize: 28,
-      marginBottom: 8,
+      marginBottom: 6,
     },
-    menuLabel: {
-      fontSize: 14,
-      fontWeight: '500',
+    menuText: {
+      fontSize: 12,
       color: theme.text,
       textAlign: 'center',
+      fontWeight: '500',
     },
-    recentItem: {
-      paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-    },
-    recentText: {
-      color: theme.text,
-    },
-    recentMeta: {
-      fontSize: 12,
-      color: theme.textSecondary,
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });
 
-  if (!stats) {
+  if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.text }}>Loading...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={{ color: theme.text, marginTop: 12 }}>Loading...</Text>
       </View>
     );
   }
@@ -153,85 +285,59 @@ export default function AdminPanelScreen() {
   return (
     <ScrollView
       style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.primary]} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[theme.primary]} />
+      }
     >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Admin Panel</Text>
-          <Text style={styles.roleBadge}>Role: {role}</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutBtn}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Guardians</Text>
-          <Text style={styles.statValue}>{stats.totalGuardians}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Pending Applications</Text>
-          <Text style={styles.statValue}>{stats.pendingApplications}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Active Guardians</Text>
-          <Text style={styles.statValue}>{stats.activeGuardians}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Avg Response Time</Text>
-          <Text style={styles.statValue}>{stats.avgResponseTime}m</Text>
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>Management</Text>
-      <View style={styles.menuGrid}>
-        
-        {role === 'super_admin' ? (
-         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminLogs')}>
-            <Text style={styles.menuIcon}>📋</Text>
-            <Text style={styles.menuLabel}>Audit Trail</Text>
-        </TouchableOpacity>
-            ) : null}
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminApplications')}>
-          <Text style={styles.menuIcon}>📋</Text>
-          <Text style={styles.menuLabel}>Applications</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminGuardians')}>
-          <Text style={styles.menuIcon}>🛡️</Text>
-          <Text style={styles.menuLabel}>Guardians</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminAnalytics')}>
-          <Text style={styles.menuIcon}>📊</Text>
-          <Text style={styles.menuLabel}>Analytics</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminAlertFeed')}>
-          <Text style={styles.menuIcon}>🔴</Text>
-          <Text style={styles.menuLabel}>Live Alerts</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminGuardianPerformance')}>
-          <Text style={styles.menuIcon}>📈</Text>
-          <Text style={styles.menuLabel}>Performance</Text>
-        </TouchableOpacity>
-        {role === 'super_admin' || role === 'agency_admin' ? (
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AdminInvites')}>
-            <Text style={styles.menuIcon}>✉️</Text>
-            <Text style={styles.menuLabel}>Invites</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.headerTitle}>Zenca Admin</Text>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
-        ) : null}
+        </View>
+        <View style={styles.adminInfo}>
+          <Text style={styles.adminEmail}>{adminEmail}</Text>
+          <Text style={styles.adminRole}>{adminRole.toUpperCase()}</Text>
+        </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Recent Activity</Text>
-      {recent.length === 0 ? (
-        <Text style={{ color: theme.textSecondary }}>No recent activity.</Text>
-      ) : (
-        recent.map((item, idx) => (
-          <View key={idx} style={styles.recentItem}>
-            <Text style={styles.recentText}>{item.guardians?.full_name || 'Unknown'} responded to alert</Text>
-            <Text style={styles.recentMeta}>{new Date(item.created_at).toLocaleString()}</Text>
-          </View>
-        ))
-      )}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{adminData.totalGuardians}</Text>
+          <Text style={styles.statLabel}>Total Guardians</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{adminData.pendingApplications}</Text>
+          <Text style={styles.statLabel}>Pending</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{adminData.activeGuardians}</Text>
+          <Text style={styles.statLabel}>Active</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{adminData.avgResponseTime}</Text>
+          <Text style={styles.statLabel}>Avg Response</Text>
+        </View>
+      </View>
+
+      <View style={styles.menuGrid}>
+        {filteredMenu.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.menuItem}
+            onPress={() => navigation.navigate(item.screen)}
+          >
+            <Ionicons
+              name={item.icon}
+              size={32}
+              color={theme.primary}
+              style={styles.menuIcon}
+            />
+            <Text style={styles.menuText}>{item.title}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </ScrollView>
   );
 }
